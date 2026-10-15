@@ -1,6 +1,6 @@
-/* Agima project page: interactive figures, plus the page chrome (teaser sound toggle,
-   scroll reveal, section nav / reading progress).
-   All numbers are copied from the paper (Tables 1-3 and Section 5). */
+/* Agima project page: results charts and tables, the Figure 1 highlight, video playback, plus the
+   page chrome (teaser sound toggle, scroll reveal, section nav / reading progress).
+   The RL charts live in rl-charts.js. All numbers are copied from the paper (Tables 1-3). */
 (function () {
   "use strict";
 
@@ -48,10 +48,10 @@
   };
   var K_NOTE = {
     "1": "K = 1: a real observation after every action (reactive reference).",
-    "3": "K = 3: the agent plans 3 actions, then sees the real board again.",
-    "5": "K = 5: the agent plans 5 actions from its own imagined frames, then sees the real board again.",
-    "10": "K = 10: long stretches with no real feedback.",
-    "inf": "K = ∞: one real observation at the start, then fully open-loop."
+    "3": "K = 3: 3 actions per real observation.",
+    "5": "K = 5: 5 actions per real observation.",
+    "10": "K = 10: 10 actions per real observation.",
+    "inf": "K = ∞: one real observation at the start, then open-loop."
   };
   // Table 2: imagined frames replaced at inference (K = 5, hard splits).
   var ABLATION = {
@@ -90,7 +90,6 @@
     }
   };
   var KLABEL = {"1": "1", "3": "3", "5": "5", "10": "10", "inf": "∞"};
-  var FIG = "assets/images/";
 
   /* ---------- helpers ---------- */
   var GROUPS = {closed: "Closed-source", tuned: "Fine-tuned on our training data"};
@@ -186,7 +185,7 @@
     });
     function draw() {
       var rows = K_RESULTS[state.k];
-      note.textContent = K_NOTE[state.k] + " Gemini and GPT are prompted without fine-tuning; all other models are fine-tuned on the same training data.";
+      note.textContent = K_NOTE[state.k];
       grid.innerHTML = "";
       ENVS.forEach(function (env, ei) {
         var panel = el("div", {class: "bar-panel"}, [el("h4", {text: env})]);
@@ -289,137 +288,6 @@
   }
 
 
-  /* ---------- 5. what K means: one block of the action-chunk figure per K ---------- */
-  function renderKChunks(root) {
-    var info = {
-      "1": "K = 1: after every action the real frame comes back. No imagined frames.",
-      "3": "K = 3: imagine three moves, commit them, then receive the real frame.",
-      "5": "K = 5: imagine five moves before each real frame.",
-      "10": "K = 10: imagine ten moves before each real frame.",
-      "inf": "K = ∞: one real frame at the start; the whole episode is imagined and committed at once."
-    };
-    var sizes = {"1": [2400, 326], "3": [2400, 586], "5": [2400, 586], "10": [2400, 586], "inf": [2400, 444]};
-    var controls = el("div", {class: "chart-controls"});
-    root.appendChild(controls);
-    var note = el("p", {class: "chart-note"});
-    var legend = el("img", {class: "k-legend", src: FIG + "kchunks/legend.webp", width: "2400", height: "76",
-      alt: "Legend: o ground-truth frame, ô imagined frame, a committed action, â imagined action."});
-    var img = el("img", {class: "k-block", width: "2400", height: "586", alt: ""});
-    // the block is a wide figure: link it to the full-size file, like the paper figures
-    var zoom = el("a", {class: "zoom", target: "_blank", rel: "noopener"}, [img,
-      el("span", {class: "zoom-hint", "aria-hidden": "true",
-        html: '<svg viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-7 7M10 20H4v-6M4 20l7-7"/></svg><span>Full size</span>'}),
-      el("span", {class: "visually-hidden", text: " (opens the full-size image)"})]);
-    root.appendChild(note); root.appendChild(el("div", {class: "k-frame"}, [legend, zoom]));
-    function show(k) {
-      note.textContent = info[k];
-      img.src = FIG + "kchunks/k" + k + ".webp";
-      zoom.href = img.getAttribute("src");
-      img.width = sizes[k][0]; img.height = sizes[k][1];
-      img.alt = "The same Sokoban episode planned with K = " + KLABEL[k] + ".";
-    }
-    segmented(controls, "Action chunk size K", [["1", "K = 1"], ["3", "K = 3"], ["5", "K = 5"], ["10", "K = 10"], ["inf", "K = ∞"]], "5", show);
-    show("5");
-  }
-
-
-  /* ---------- 6. animated action-chunk timeline: one row per K ---------- */
-  function renderKAnimation(root) {
-    var N = 16;                                   // actions in the example episode
-    var KS = [["1", 1], ["3", 3], ["5", 5], ["10", 10], ["inf", Infinity]];
-    var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    var grid = el("div", {class: "kanim-grid", role: "img",
-      "aria-label": "Timeline of a 16-action episode for K = 1, 3, 5, 10 and infinity: real frames arrive every K actions; frames in between are imagined."});
-    var head = el("div", {class: "kanim-row kanim-head"}, [el("span", {class: "kanim-label"})]);
-    for (var t = 0; t <= N; t++) head.appendChild(el("span", {class: "kanim-step", text: String(t)}));
-    head.appendChild(el("span", {class: "kanim-count", text: "real frames"}));
-    grid.appendChild(head);
-    var rows = KS.map(function (k) {
-      var row = el("div", {class: "kanim-row"}, [el("span", {class: "kanim-label", text: "K = " + KLABEL[k[0]]})]);
-      var cells = [];
-      for (var t = 0; t <= N; t++) { var c = el("span", {class: "kanim-cell"}); cells.push(c); row.appendChild(c); }
-      var count = el("span", {class: "kanim-count kanim-num", text: "0"});
-      row.appendChild(count);
-      grid.appendChild(row);
-      return {K: k[1], cells: cells, count: count, real: 0};
-    });
-    var legend = el("div", {class: "chart-legend kanim-legend"}, [
-      el("span", {}, [el("i", {class: "kanim-sw real"}), document.createTextNode("real frame from the environment")]),
-      el("span", {}, [el("i", {class: "kanim-sw imag"}), document.createTextNode("imagined frame")]),
-      el("span", {}, [el("i", {class: "kanim-sw flip"}), document.createTextNode("chunk ends: the real frame replaces the imagined one")])
-    ]);
-    // scrolls sideways on phones: focusable so it can be scrolled from the keyboard (Safari)
-    var wrap = el("div", {class: "kanim-wrap", tabindex: "0", role: "region", "aria-label": "Action-chunk timeline"}, [grid]);
-    root.appendChild(wrap);
-    root.appendChild(legend);
-
-    // kind of cell t for chunk size K: "real" (feedback, no imagination), "imag", or "flip" (imagined, then replaced)
-    function kind(K, t) {
-      if (t === 0) return "real";
-      if (K === 1) return "real";
-      if (t % K === 0 || t === N) return "flip";
-      return "imag";
-    }
-    function paint(r, t, state) {
-      var c = r.cells[t];
-      var wasReal = c.classList.contains("is-real");   // a step repainted after a pause is not counted twice
-      c.className = "kanim-cell is-" + state;
-      c.textContent = state === "imag" ? "ô" : "o";
-      if (state === "real" && !wasReal) { r.real += 1; r.count.textContent = String(r.real); }
-    }
-    function reset() {
-      rows.forEach(function (r) { r.real = 0; r.count.textContent = "0"; r.cells.forEach(function (c) { c.className = "kanim-cell"; c.textContent = ""; }); });
-      head.querySelectorAll(".is-now").forEach(function (s) { s.classList.remove("is-now"); });
-    }
-    function finalState() {
-      reset();
-      for (var t = 0; t <= N; t++) rows.forEach(function (r) { var k = kind(r.K, t); paint(r, t, k === "flip" ? "real" : k); });
-    }
-
-    // Plays while on screen, unless switched off or held (pointer over it / keyboard focus in it).
-    // With reduced motion it starts switched off, showing the finished timeline.
-    var t = 0, timer = null, running = false, isFinal = false;
-    var auto = !reduce, visible = !("IntersectionObserver" in window), held = false;
-    var toggle = autoToggle("Auto-play the action-chunk timeline", auto, function (v) { auto = v; update(); });
-    legend.appendChild(toggle);
-    if (reduce) { finalState(); isFinal = true; }
-    function update() { if (auto && visible && !held) start(); else stop(); }
-    function recheck() { held = isHeld([wrap]); update(); }
-    ["mouseenter", "mouseleave", "focusin", "focusout"].forEach(function (ev) {
-      wrap.addEventListener(ev, function () { setTimeout(recheck, 0); });
-    });
-    function tick() {
-      if (t > N) { timer = setTimeout(function () { reset(); t = 0; tick(); }, 2000); return; }
-      var flips = [];
-      rows.forEach(function (r) {
-        var k = kind(r.K, t);
-        paint(r, t, k === "flip" ? "imag" : k);
-        if (k === "flip") flips.push(r);
-      });
-      head.children[t + 1].classList.add("is-now");
-      var prev = head.querySelector(".is-now:not(:nth-child(" + (t + 2) + "))");
-      if (prev) prev.classList.remove("is-now");
-      var step = t;
-      timer = setTimeout(function () {
-        flips.forEach(function (r) { paint(r, step, "real"); r.cells[step].classList.add("is-flip"); });
-        t += 1;
-        timer = setTimeout(tick, flips.length ? 520 : 300);
-      }, flips.length ? 380 : 220);
-    }
-    function start() {
-      if (running) return;
-      running = true;
-      if (isFinal) { reset(); t = 0; isFinal = false; }
-      tick();
-    }
-    function stop() { running = false; clearTimeout(timer); }
-    if ("IntersectionObserver" in window) {
-      new IntersectionObserver(function (entries) {
-        visible = entries[0].isIntersecting; update();
-      }, {threshold: 0.3}).observe(grid);
-    } else { update(); }
-  }
-
   /* ---------- BibTeX copy button ---------- */
   function initCopy() {
     document.querySelectorAll("[data-copy]").forEach(function (b) {
@@ -491,8 +359,8 @@
         n.addEventListener(ev, function () { setTimeout(recheck, 0); });
       });
     });
-    var hint = document.querySelector(".imagine-figure .figure-hint");
-    if (hint) { hint.appendChild(toggle); hint.hidden = false; }
+    var tools = document.querySelector(".imagine-figure .figure-tools");
+    if (tools) { tools.appendChild(toggle); tools.hidden = false; }
     show(0);
     if ("IntersectionObserver" in window) {
       new IntersectionObserver(function (entries) {
@@ -526,50 +394,110 @@
     if (reduce) set(false);
   }
 
-  /* ---------- teaser video: sound toggle, reduced motion, pause while off-screen ---------- */
-  function initTeaser() {
-    var video = document.getElementById("teaser-video");
-    if (!video) return;
+  /* ---------- videos: autoplay muted loop, played only while on screen ---------- */
+  // Every <video> carries autoplay muted loop playsinline in the HTML, so it also plays with JS off.
+  // With IntersectionObserver, JS owns playback instead: the autoplay attribute is dropped, a clip that
+  // is not near the screen stops loading (it keeps its poster, preload="none"), and the observer plays
+  // each one while it is on screen. A clip the reader paused stays paused. With reduced motion they all
+  // start paused on the poster. Every video gets a small play/pause button (clicking it works too).
+  function initVideos() {
+    var videos = Array.prototype.slice.call(document.querySelectorAll("video"));
+    if (!videos.length) return;
     var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    function play() { var p = video.play(); if (p && p.catch) p.catch(function () {}); }
-    if (reduce) { video.autoplay = false; video.removeAttribute("autoplay"); video.pause(); }
-
-    var btn = document.querySelector("[data-sound-toggle]");
-    if (btn) {
-      var state = btn.querySelector(".sound-state");
-      var sync = function () {
-        var on = !video.muted && video.volume > 0;
-        btn.setAttribute("aria-pressed", String(on));
-        btn.classList.toggle("is-on", on);
-        if (state) state.textContent = on ? "on" : "off";
-      };
-      btn.addEventListener("click", function () {
-        btn.classList.add("was-used");
-        if (video.muted || video.volume === 0) {
-          video.muted = false;
-          if (video.volume === 0) video.volume = 1;
-          if (video.paused) play();
-        } else {
-          video.muted = true;
+    var hasIO = "IntersectionObserver" in window;
+    var MARGIN = 80;   // px: a video this close to the screen counts as on screen
+    var ICONS = '<svg class="ico ico-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.5 5.5v13M15.5 5.5v13"/></svg>' +
+                '<svg class="ico ico-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z"/></svg>';
+    function play(v) { var p = v.play(); if (p && p.catch) p.catch(function () {}); }
+    function near(v) {
+      var r = v.getBoundingClientRect(), vh = window.innerHeight || document.documentElement.clientHeight;
+      return r.bottom > -MARGIN && r.top < vh + MARGIN;
+    }
+    var states = videos.map(function (v) {
+      // visible: on screen (as last reported by the observer); known: the observer has reported it at least once;
+      // held: the reader (or reduced motion) wants it paused. Only the play/pause button sets or clears held.
+      var s = {v: v, visible: !hasIO, known: !hasIO, held: reduce};
+      if (hasIO || reduce) {
+        v.autoplay = false; v.removeAttribute("autoplay");
+        if (reduce || !near(v)) {
+          // stop the download the autoplay attribute started; load() keeps the poster
+          v.pause(); v.preload = "none"; v.load();
         }
+      }
+      // a clip that starts while off screen (the browser, or a late autoplay) is paused again;
+      // one started on screen (the play button, the teaser's sound button) is no longer held
+      v.addEventListener("play", function () { if (hasIO && s.known && !s.visible) v.pause(); else s.held = false; });
+      // the teaser's native controls are only the no-JS fallback (they show a running time); the button replaces them
+      v.controls = false; v.removeAttribute("controls");
+      if (v.parentNode) {
+        var box = v.parentNode;
+        var name = v.getAttribute("data-name") || "animation";
+        var btn = el("button", {type: "button", class: "clip-toggle", html: ICONS});
+        box.appendChild(btn);
+        var sync = function () {
+          btn.setAttribute("aria-label", (v.paused ? "Play " : "Pause ") + name);
+          btn.classList.toggle("is-paused", v.paused);
+          box.classList.toggle("is-held", v.paused && s.held);
+        };
+        var toggle = function () {
+          if (v.paused) { s.held = false; play(v); } else { s.held = true; v.pause(); }
+          sync();
+        };
+        btn.addEventListener("click", toggle);
+        v.addEventListener("click", toggle);
+        ["play", "playing", "pause"].forEach(function (ev) { v.addEventListener(ev, sync); });
         sync();
+      }
+      return s;
+    });
+    if (!hasIO) return;
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        var s = null;
+        for (var i = 0; i < states.length; i++) if (states[i].v === e.target) s = states[i];
+        if (!s) return;
+        s.known = true;
+        s.visible = e.isIntersecting;
+        if (s.visible) { if (!s.held && s.v.paused && !document.hidden) play(s.v); }
+        else if (!s.v.paused) s.v.pause();
       });
-      video.addEventListener("volumechange", sync);   // stays in sync with the native controls
-      btn.hidden = false;
-      sync();
-    }
+    }, {rootMargin: MARGIN + "px 0px", threshold: 0});
+    states.forEach(function (s) { io.observe(s.v); });
+    // a hidden tab pauses everything; coming back resumes what is on screen
+    document.addEventListener("visibilitychange", function () {
+      states.forEach(function (s) {
+        if (document.hidden) { if (!s.v.paused) s.v.pause(); }
+        else if (s.visible && !s.held && s.v.paused) play(s.v);
+      });
+    });
+  }
 
-    // Pause while scrolled away; resume only if we were the ones who paused it.
-    if ("IntersectionObserver" in window) {
-      var autoPaused = false;
-      new IntersectionObserver(function (entries) {
-        if (!entries[0].isIntersecting) {
-          if (!video.paused) { video.pause(); autoPaused = true; }
-        } else if (autoPaused) {
-          autoPaused = false; play();
-        }
-      }, {threshold: 0.15}).observe(video);
+  /* ---------- teaser sound toggle (the teaser is the only video with sound) ---------- */
+  function initSound() {
+    var video = document.getElementById("teaser-video");
+    var btn = document.querySelector("[data-sound-toggle]");
+    if (!video || !btn) return;
+    var state = btn.querySelector(".sound-state");
+    function sync() {
+      var on = !video.muted && video.volume > 0;
+      btn.setAttribute("aria-pressed", String(on));
+      btn.classList.toggle("is-on", on);
+      if (state) state.textContent = on ? "on" : "off";
     }
+    btn.addEventListener("click", function () {
+      btn.classList.add("was-used");
+      if (video.muted || video.volume === 0) {
+        video.muted = false;
+        if (video.volume === 0) video.volume = 1;
+        if (video.paused) { var p = video.play(); if (p && p.catch) p.catch(function () {}); }
+      } else {
+        video.muted = true;
+      }
+      sync();
+    });
+    video.addEventListener("volumechange", sync);   // stays in sync with the native controls
+    btn.hidden = false;
+    sync();
   }
 
   /* ---------- scroll reveal (progressive enhancement: content is visible without it) ---------- */
@@ -656,10 +584,8 @@
     if ((m = document.getElementById("k-results"))) renderKResults(m);
     if ((m = document.getElementById("ablation"))) renderAblation(m);
     if ((m = document.getElementById("reasoning-results"))) renderReasoning(m);
-    if ((m = document.getElementById("k-chunks"))) renderKChunks(m);
-    if ((m = document.getElementById("k-anim"))) renderKAnimation(m);
     initCopy(); initImagineAnimation(); initClips();
-    initTeaser(); initNav(); initTodoLinks(); initReveal();
+    initVideos(); initSound(); initNav(); initTodoLinks(); initReveal();
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot); else boot();
 })();

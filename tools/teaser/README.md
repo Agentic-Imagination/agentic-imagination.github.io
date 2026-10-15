@@ -14,6 +14,31 @@ python tools/teaser/make_teaser_v3.py --stills DIR # preview stills of every sce
 
 The script works from any directory; paths are resolved relative to the script.
 
+The same script renders the short silent clips the project page shows, in the teaser's visual language
+(each fades in from and out to the background, so it loops; ~1-3 s per clip second to render):
+
+```bash
+python tools/teaser/make_teaser_v3.py --list-clips              # names, durations, what each shows
+python tools/teaser/make_teaser_v3.py --clip clip_fork          # writes assets/video/clip_fork.mp4 + clip_fork.webp (poster)
+python tools/teaser/make_teaser_v3.py --clip all                # all of them, into assets/video/
+python tools/teaser/make_teaser_v3.py --clip clip_fork -o x.mp4 # or to another file (the poster goes beside it)
+python tools/teaser/make_teaser_v3.py --clip clip_fork --stills DIR   # preview stills instead
+```
+
+- `clip_method`: the search scene alone (imagine step by step, rewind dead ends, act, then the fast real-board solve)
+- `clip_format`: the emerge scene for the page (`sc_emerge_page`): a new format after RL, without the teaser's small
+  Fig. 6b curve (the page draws that chart itself), so the unified format is centred and set larger
+- `clip_fork`: an illustration on the fork trap (not a recorded run): before RL it has no branch at this fork and the
+  risky push deadlocks the real board; after RL it branches at the fork, sees that push fail in imagination,
+  rewinds, imagines the safe way and acts on it (the real board stays at the fork; the acted path turns green).
+  Both models branch (Fig. 6c); the clip shows only where the branch lands (Fig. 6d)
+- `clip_trap_deadlock`, `clip_trap_fork`: without imagination the tempting push jams a box; Agima imagines it, sees
+  the deadlock, rewinds, imagines another route to the end and acts on it
+- `clip_trap_pacman`: the real Pacman episodes, linear rollout (nearer food first, caught by the ghost) vs forward
+  thinking (farther food first, all food eaten), with glowing trails; a red ring marks the capture
+
+Clips are H.264 without audio, CRF 25 (`--crf` to change).
+
 A full render takes about 2–3 minutes. Every frame is drawn with Pillow at 2560×1440 and
 downsampled to 1280×720, then piped to ffmpeg (H.264, 30 fps).
 The sound effects (a blip per imagined frame, a knock per dead end, a swoosh per rewind, a ding per plan

@@ -5,6 +5,9 @@ usage:
   python make_teaser_v3.py --no-audio         # without the sound effects
   python make_teaser_v3.py -o out.mp4         # writes somewhere else
   python make_teaser_v3.py --stills DIR       # saves preview stills of every scene to DIR instead
+  python make_teaser_v3.py --list-clips       # the short silent clips the project page shows (see CLIPS)
+  python make_teaser_v3.py --clip NAME        # writes ../../assets/video/NAME.mp4 and its poster NAME.webp
+  python make_teaser_v3.py --clip NAME -o out.mp4 | --clip all | --clip NAME --stills DIR
 
 Scenes
   hook      the whole Sokoban board, large: without imagination, the agent pushes the nearest box left and
@@ -23,9 +26,21 @@ Scenes
             then Format 2's candidates after it fails), while a small chart climbs
             from 5% to 100% of episodes in that format over RL steps (Fig. 6b)
   end       title and authors (v2's end card, played 2.2x faster)
+
+Clips for the page (silent, 1280x720, each fades in from and out to the background so it loops)
+  clip_method         the search scene alone
+  clip_format         the emerge scene for the page (sc_emerge_page: no Fig. 6b curve; the unified format centred, larger)
+  clip_fork           the fork before RL (no branch at this fork; takes the risky push for real: deadlock) and after RL (branches at the fork,
+                      sees that push fail in imagination, rewinds, imagines the safe way, acts on it); an illustration
+  clip_trap_deadlock  without imagination the tempting push jams a box; Agima imagines it, sees the deadlock, rewinds,
+                      imagines another route to the end and acts on it
+  clip_trap_fork      the same on the fork trap (the wrong push at the critical step)
+  clip_trap_pacman    the real Pacman episodes: linear rollout (nearer food first, caught) vs forward thinking (farther
+                      food first, all food eaten), with glowing trails
 """
 import os
 import subprocess
+from contextlib import contextmanager
 import sys
 from collections import deque
 
@@ -695,11 +710,11 @@ def curve_chart(v, box, lines, u, p, ymax=50, title=None, xlabel="RL steps", siz
         v.line([(px0, y), (max(px0 + 1, xe), y)], fade(FAINT, (0.9 if k == 0 else 0.5) * p), 2 if k == 0 else 1)
         if size >= 1 or k in (0, 5):   # a small chart names only its ends
             v.text((px0 - 14 * size, y), f"{int(ymax * k / 5)}%", fa, fade(MUTED, p), "rm")
-    v.text((px0, py1 + 26 * size), "0", fa, fade(MUTED, p), "mm")
-    if grow and 0.05 < u < 0.97:   # the step counter rides the axis
-        v.text((xe, py1 + 26 * size), f"{int(200 * u)}", inter(int(max(13, 16 * size) * Z), b"Bold"), fade(INK, p), "mm")
-    if not grow or u >= 0.97:
-        v.text((px1, py1 + 26 * size), "200", fa, fade(MUTED, p * (ease_out(prog(u, 0.97, 0.03)) if grow else 1)), "mm")
+    # the RL-step axis names only the measured checkpoints (0, 50, ..., 200), each as the curves reach it
+    for s_ in RL_STEPS:
+        ta =1.0 if not grow else ease_out(prog(200 * u, s_ - 1e-6, 12))
+        if ta > 0:
+            v.text((to(s_, 0)[0], py1 + 26 * size), str(s_), fa, fade(MUTED, p * ta), "mm")
     v.text(((px0 + px1) / 2, py1 + 50 * size), xlabel, fa, fade(MUTED, p), "mm")
     if u <= 0:
         return
@@ -717,12 +732,15 @@ def curve_chart(v, box, lines, u, p, ymax=50, title=None, xlabel="RL steps", siz
     gap = (52 if any(e[4] for e in ends) else 30) * size
     for i in range(1, len(ends)):
         ends[i][0] = max(ends[i][0], ends[i - 1][0] + gap)
-    for ly, hx, val, col, name, _ in ends:
+    # values are printed only once the curves reach the last checkpoint: in between they would be interpolated, not measured
+    va = p * (ease_out(prog(u, 0.985, 0.015)) if u < 1 else 1.0)
+    for ly, hx, val, col, name, last in ends:
         if name:
             v.text((hx + 18 * size, ly - 15 * size), name, inter(int(18 * Z * size), b"Bold"), fade(col, p), "lm")
-            v.text((hx + 18 * size, ly + 13 * size), f"{int(round(val))}%", inter(int(30 * Z * size), b"Bold"), fade(col, p), "lm")
-        else:
-            v.text((hx + 16 * size, ly), f"{int(round(val))}%", inter(int(30 * Z * size), b"Bold"), fade(col, p), "lm")
+            if va > 0:
+                v.text((hx + 18 * size, ly + 13 * size), f"{int(round(last))}%", inter(int(30 * Z * size), b"Bold"), fade(col, va), "lm")
+        elif va > 0:
+            v.text((hx + 16 * size, ly), f"{int(round(last))}%", inter(int(30 * Z * size), b"Bold"), fade(col, va), "lm")
 
 
 def _fork(im):
@@ -840,7 +858,7 @@ EM_F1 = _fig5_row(97, (1397, 1634, 1871, 2109))
 EM_F2 = [(_fig5_row(332), True), (_fig5_row(490), False)]
 # as in Fig. 5b, the first plan is Format 1's step-by-step rollout (no label); after it fails, Format 2's candidates take over
 EM_NEW = [(None, _fig5_row(704), False), ("Candidate 2", _fig5_row(862), False), ("Candidate 3", _fig5_row(1021), True)]
-EM_HYBRID = [5, 10.5, 100, 100, 100]       # episodes in the hybrid format over RL steps (%), 3 boxes
+EM_HYBRID = [4.9, 10.5, 100, 100, 100]     # episodes in the unified format over RL steps (%), 3 boxes (= rl-charts.js fig6b)
 EM_CUT, EM_FLY, EM_ROW = 2.2, 3.0, 0.85   # discard / keep, pieces fly down, one plan of the new format
 EM_DROP, EM_GAP = 0.8, 0.12                 # each of Format 2's pieces: how long its flight takes, one after another
 EM_NEW_T0 = EM_FLY + EM_GAP + 2 * EM_GAP + EM_DROP + 0.07   # the new format draws once every piece has landed
@@ -849,7 +867,7 @@ EM_COMMIT = EM_NEW_T0 + 2 * EM_ROW + 0.08 * 3 + 0.28 + 0.15     # the commit, al
 
 def _think(v, xy, text, col, a, size=16):
     """'<think> text' on one line, left-middle anchored at xy; returns the text's (x0, x1)."""
-    ft, fx = inter(size * Z, b"Bold"), inter(size * Z, b"SemiBold")
+    ft, fx = inter(int(round(size * Z)), b"Bold"), inter(int(round(size * Z)), b"SemiBold")
     v.text(xy, "<think>", ft, fade(MUTED, a), "lm")
     x = xy[0] + v.tlen("<think> ", ft)
     v.text((x, xy[1]), text, fx, fade(col, a), "lm")
@@ -879,9 +897,9 @@ def _em_path(sxy, dxy, g):
     return sx + (dx - sx) * ease_io((g - 0.45) / 0.55), dy
 
 
-def _tag(v, x, y, label, col, a):
+def _tag(v, x, y, label, col, a, size=12):
     if a > 0:
-        v.pill(x, y, label, col, None, a, size=12)
+        v.pill(x, y, label, col, None, a, size=size)
 
 
 EM_SLOW = 1.4   # the scene plays this many times slower than its timeline below
@@ -891,7 +909,13 @@ def sc_emerge(v, t, dur):
     _emerge_at(v, t / EM_SLOW)
 
 
-def _emerge_at(v, t):
+def sc_emerge_page(v, t, dur):
+    """The page's version: no curve (the page draws Fig. 6b as its own chart), so the unified format gets the whole
+    panel, centred, in larger type."""
+    _emerge_at(v, t / EM_SLOW, page=True)
+
+
+def _emerge_at(v, t, page=False):
     v.headline(t, [("A new format", INK), ("emerges", ACCENT), ("after RL.", INK)], size=40,
                sub="SFT taught two separate formats. RL drops part of one and merges the rest into one format.")
     dim = 1 - 0.55 * ease_out(prog(t, EM_FLY, 0.5))   # the old formats step back once their pieces move on
@@ -931,65 +955,78 @@ def _emerge_at(v, t):
     if p <= 0:
         return
     v.rrect((60, 400 + 14 * (1 - p), 1220, 700), 22, fill=fade(WHITE, p))
+    # the page's version is centred in the whole panel and set larger (k); the teaser's leaves room for the curve
+    k_ = 1.25 if page else 1.0
+    bx = 234 if page else 84                    # left edge of the unified format's text
+    tx0 = bx + int(round(206 * k_))             # its first thumbnail
+    ts, tp = (50, 76) if page else (46, 60)     # thumbnail size and pitch
+    sz = lambda n, g=1.0: n * (1 + (k_ - 1) * g)   # a font size n, grown by g of the way to the larger type
+    band_r = W - bx + 18 if page else 706
     # once everything has landed, light bands show the new format's two parts: Format 1's, then Format 2's
     ba = ease_out(prog(t, _em_leave(2) + EM_DROP, 0.4)) * p
     if ba > 0:
         for col, (y0b, y1b) in ((F1C, (447, 539)), (F2C, (542, 684))):
-            v.rrect((66, y0b, 706, y1b), 12, fill=mix(WHITE, col, 0.09 * ba))
+            v.rrect((bx - 18, y0b, band_r, y1b), 12, fill=mix(WHITE, col, 0.09 * ba))
     # the header: the new format, as the sum of the two it came from
     ha = ease_out(prog(t, EM_FLY + 0.6, 0.3)) * p   # it waits for Format 1's line to pass it
     if ha > 0:
-        x = 84
-        for txt, col, f_ in (("Unified format", INK, fh), ("  =  ", MUTED, fd), ("Format 1", F1C, fh), ("  +  ", MUTED, fd),
-                             ("Format 2", F2C, fh)):
+        x = bx
+        fhb, fdb = inter(int(sz(19) * Z), b"Bold"), inter(int(sz(16) * Z))
+        for txt, col, f_ in (("Unified format", INK, fhb), ("  =  ", MUTED, fdb), ("Format 1", F1C, fhb), ("  +  ", MUTED, fdb),
+                             ("Format 2", F2C, fhb)):
             v.text((x, 434), txt, f_, fade(col, ha), "ls"); x += v.tlen(txt, f_)
-        _tag(v, x + 14, 428, "new after RL", ACCENT, ha)
+        _tag(v, x + 14, 428, "new after RL", ACCENT, ha, int(sz(12)))
     f = ease_io(prog(t, EM_FLY, 0.7))   # Format 1's opening flies down into the new format
-    _, tx1 = _think(v, (l1[0], l1[1] + (466 - l1[1]) * f), "Let me imagine the next moves step by step.", F1C, p * min(1, 0.4 + f))
+    _, tx1 = _think(v, (l1[0] + (bx - l1[0]) * f, l1[1] + (466 - l1[1]) * f), "Let me imagine the next moves step by step.", F1C,
+                    p * min(1, 0.4 + f), sz(16, f))
     landed = ease_out(prog(t, _em_leave(2) + EM_DROP, 0.3)) * p
-    _tag(v, tx1 + 12, 466, "from Format 1", F1C, landed)
+    _tag(v, tx1 + 12, 466, "from Format 1", F1C, landed, int(sz(12)))
     rows = (512, 566, 620)
     # brackets tie each part to its source: Format 1's line and the rollout under it, then Format 2's candidates and commit
     if landed > 0:
         for col, ys in ((F1C, (466, rows[0])), (F2C, (rows[1], rows[2], 664))):
-            v.line([(72, ys[0] - 12), (72, ys[-1] + 10)], fade(col, landed), 3)
+            v.line([(bx - 12, ys[0] - 12), (bx - 12, ys[-1] + 10)], fade(col, landed), 3)
             for y in ys:
-                v.line([(72, y), (78, y)], fade(col, landed), 3)
+                v.line([(bx - 12, y), (bx - 6, y)], fade(col, landed), 3)
     for k, ((label, ims, ok), y) in enumerate(zip(EM_NEW, rows)):
         t0 = EM_NEW_T0 + k * EM_ROW
         if label:   # Format 2's candidate labels come down, lowest first
             g = prog(t, _em_leave(3 - k), EM_DROP)
             sy = (None, 316, 340)[k]
-            lab_xy = _em_path((694, sy), (84, y), g); la = p * min(1, 0.4 + g) * (1 if k < 2 else min(1, 3 * g))
+            lab_xy = _em_path((694, sy), (bx, y), g); la = p * min(1, 0.4 + g) * (1 if k < 2 else min(1, 3 * g))
+            flab = inter(int(sz(15, g) * Z), b"Bold")
         nx = 0
         if k:   # "Next," is new, in neither format: the label makes room, then it fades in
-            nx = v.tlen("Next, ", inter(15 * Z, b"Bold")) * ease_out(prog(t, t0 - 0.4, 0.25))
+            fnx = inter(int(sz(15) * Z), b"Bold")
+            nx = v.tlen("Next, ", fnx) * ease_out(prog(t, t0 - 0.4, 0.25))
             na = ease_out(prog(t, t0 - 0.15, 0.25)) * p
-            v.text((lab_xy[0], lab_xy[1]), "Next,", inter(15 * Z, b"Bold"), fade(INK, na), "lm")
+            v.text((lab_xy[0], lab_xy[1]), "Next,", fnx, fade(INK, na), "lm")
         if label:
-            v.text((lab_xy[0] + nx, lab_xy[1]), label, fc, fade(F2C, la), "lm")
+            v.text((lab_xy[0] + nx, lab_xy[1]), label, flab, fade(F2C, la), "lm")
         if t < t0:
             continue
-        xe = _thumbs(v, t, t0, 290, y, ims, 46, 60, p)
+        xe = _thumbs(v, t, t0, tx0, y, ims, ts, tp, p)
         te = t0 + 0.08 * 3 + 0.28
-        v.stamp(xe + 24, y, ok, prog(t, te, 0.25), r=13)
+        v.stamp(xe + 24 * k_, y, ok, prog(t, te, 0.25), r=13 * k_)
         ra = ease_out(prog(t, te + 0.05, 0.25)) * p
-        v.text((xe + 46, y), "Result: succeeds." if ok else "Result: deadlock.", inter(15 * Z, b"SemiBold"),
+        v.text((xe + 46 * k_, y), "Result: succeeds." if ok else "Result: deadlock.", inter(int(sz(15) * Z), b"SemiBold"),
                fade(GREEN if ok else RED, ra), "lm")
     # Format 2's commit comes down with them, waits, and names the plan that worked once one does
     g = prog(t, _em_leave(0), EM_DROP)
     if g > 0:
-        fcm = inter(15 * Z, b"SemiBold")
+        fcm = inter(int(sz(15, g) * Z), b"SemiBold")
         won = ease_out(prog(t, EM_COMMIT, 0.3))
         if g < 1:
             line, ca = "I will commit Candidate 1. </think>", min(1, 0.4 + g)
         else:
             line, ca = ("I will commit Candidate 3. </think>" if won > 0 else "I will commit Candidate ?. </think>"), 0.45 + 0.55 * won
-        v.text(_em_path((694, 356), (84, 664), g), line, fcm, fade(F2C, p * ca), "lm")
-        _tag(v, 84 + v.tlen("I will commit Candidate 3. </think>  ", fcm), 664, "from Format 2", F2C, landed)
-    # how often it uses the new format, climbing over RL steps as the format comes together
+        v.text(_em_path((694, 356), (bx, 664), g), line, fcm, fade(F2C, p * ca), "lm")
+        _tag(v, bx + v.tlen("I will commit Candidate 3. </think>  ", fcm), 664, "from Format 2", F2C, landed, int(sz(12)))
+    if page:
+        return
+    # the teaser only: how often it uses the new format, climbing over RL steps as the format comes together
     q = ease_out(prog(t, _em_leave(2) + EM_DROP, 0.4)) * p   # once the pieces have landed
-    v.text((800, 452), "Episodes in the new format (3 boxes)", inter(17 * Z, b"Bold"), fade(INK, q), "ls")
+    v.text((800, 452), "Episodes in the unified format (3 boxes)", inter(17 * Z, b"Bold"), fade(INK, q), "ls")
     curve_chart(v, (722, 446, 1248, 688), [(EM_HYBRID, ACCENT, None)], ease_io(prog(t, EM_NEW_T0, 3 * EM_ROW + 0.6)), q,
                 ymax=100, xlabel="RL step", size=0.85)
 
@@ -1212,14 +1249,519 @@ def render_stills(outdir):
     print("stills ->", outdir)
 
 
+# ================================================================== clips for the project page
+# Short silent loops, one per figure on the page, in the teaser's visual language: imagined boards are blue-tinted with a
+# dashed blue outline, dead ends turn red and jolt, acted moves are solid green. Rendered one at a time with --clip.
+DEAD_TINT = (255, 205, 195)
+
+
+def _crop(im, rows):
+    """Rows r0..r1-1 of an 8x8 board image (32 px tiles)."""
+    return im if tuple(rows) == (0, 8) else im.crop((0, rows[0] * 32, im.width, rows[1] * 32))
+
+
+def _tint(im, kind):
+    if kind == "imag":
+        return Image.blend(im, Image.new("RGB", im.size, IMAG_TINT), 0.16)
+    if kind == "dead":
+        return Image.blend(im, Image.new("RGB", im.size, DEAD_TINT), 0.26)
+    return im
+
+
+def bcard(v, im, cx, cy, w, h, a=1.0, kind="real", scale=1.0, col=None, r=12):
+    """A board card: 'real' (solid ink), 'imag' (blue tint, dashed blue), 'dead' (red tint, dashed red), 'done' (solid
+    green), 'jam' (a real board that jammed: solid red)."""
+    if a <= 0:
+        return
+    col = col or {"real": INK, "imag": ACCENT, "dead": RED, "done": GREEN, "jam": RED}[kind]
+    v.card(_tint(im, kind), cx, cy, h, a, scale, r=r, nearest=True, outline=col, dashed=kind in ("imag", "dead"), sx=w / h)
+
+
+def _cell(cx, cy, w, h, rows, rc):
+    """Screen centre of board cell rc on a card of w x h showing rows[0].. of the board."""
+    cs = w / 8
+    return cx - w / 2 + (rc[1] + 0.5) * cs, cy - h / 2 + (rc[0] - rows[0] + 0.5) * cs
+
+
+def jam_ring(v, x, y, cs, p, a=1.0):
+    """A red ring that closes in on a jammed box."""
+    if p <= 0 or a <= 0:
+        return
+    rr = cs * 0.62 + cs * 0.8 * (1 - ease_out(p))
+    v.d.ellipse(v.z(x - rr, y - rr, x + rr, y + rr), outline=fade(RED, ease_out(p) * a), width=4 * Z)
+
+
+def jolt(t, t0, amp=9.0):
+    """The sideways shake of a board that just deadlocked."""
+    jt = t - t0
+    return amp * np.sin(jt * 50) * np.exp(-7 * jt) if 0 < jt < 0.55 else 0.0
+
+
+@contextmanager
+def on_white():
+    """Inside, fade() fades toward white rather than the page colour: for marks drawn on a white panel, which would
+    otherwise pass through beige as they fade."""
+    old = V2.BG; V2.BG = WHITE
+    try:
+        yield
+    finally:
+        V2.BG = old
+
+
+def panel(v, box, a, r=26):
+    if a <= 0:
+        return
+    dy = 14 * (1 - a)
+    v.rrect((box[0], box[1] + dy, box[2], box[3] + dy), r, fill=fade(WHITE, a))
+
+
+def head2(v, x, y, title, col, sub, a, size=30):
+    """A bold title, with an optional muted remark after it, on one line."""
+    if a <= 0:
+        return
+    f = inter(size * Z, b"Bold")
+    v.text((x, y), title, f, fade(col, a), "ls")
+    if sub:
+        v.text((x + v.tlen(title + "  ", f), y), sub, inter(int(size * 0.72) * Z), fade(MUTED, a), "ls")
+
+
+def cpill(v, cx, cy, label, col, ok, a, size=20):
+    """A filled pill centred on (cx, cy)."""
+    if a <= 0:
+        return
+    w = v.tlen(label, inter(size * Z, b"SemiBold")) + 30 + (0 if ok is None else 22)
+    v.pill(cx - w / 2, cy, label, col, ok, a, size=size)
+
+
+def move_tag(v, x, y, moves, t, t0, step, col, scale, until=None):
+    """The action tag of the move being made at t; each pops in as its move starts. The last one stays until `until`."""
+    if t < t0 or not moves:
+        return
+    k = int((t - t0) / step)
+    end = until if until is not None else t0 + step * len(moves)
+    if t >= end + 0.25:
+        return
+    k = min(k, len(moves) - 1)
+    pa = prog(t, t0 + k * step, POP_A)
+    a = ease_out(pa) * (1 - ease_out(prog(t, end, 0.25)))
+    action_tag(v, x, y, moves[k], col, a, pop_r(pa, 16 * scale) / 16)
+
+
+def rewind_pill(v, x, y, a, s=1.0):
+    """rewind_tag, scaled by s."""
+    if a <= 0:
+        return
+    f = inter(int(15 * Z * s), b"Bold"); h = 30 * s
+    w = (14 + 22 + 6 + 14) * s + v.tlen("rewind", f)
+    x0 = x - w / 2
+    v.rrect((x0, y - h / 2, x0 + w, y + h / 2), h / 2, fill=fade(INK, a), outline=fade(WHITE, a), width=2)
+    for dx in (0, 10):
+        v.head(x0 + (16 + dx) * s, y, fade(WHITE, a), (-1, 0), 7 * s)
+    v.text((x0 + (14 + 22 + 6) * s, y + 0.5), "rewind", f, fade(WHITE, a), "lm")
+
+
+def small_arrow(v, a, b, col, al=1.0, dashed=True):
+    if al <= 0:
+        return
+    d = np.subtract(b, a); u = d / max(float(np.hypot(*d)), 1e-6)
+    v.line([a, tuple(np.subtract(b, u * 5))], fade(col, al), 2, dash=(5, 4) if dashed else None)
+    v.head(b[0], b[1], fade(col, al), tuple(u), 7)
+
+
+# --- planning traps (Sokoban): without imagination the tempting push jams; Agima imagines it first, sees the deadlock,
+# rewinds and plays out another route in imagination, then acts on it
+TP_S, TP_Y = 340, 372                                     # board width on screen, board centre height
+TP_L, TP_R = (36, 44, 436, 684), (466, 44, 1244, 684)     # the two panels
+TP_XL, TP_XR, TP_XI = 236, 666, 1044                      # without imagination; Agima's real board; Agima's imagined one
+
+
+def _trap(board, tempt, sol, rows):
+    st, ss = board.states(tempt), board.states(sol)
+    assert not _solvable_on(board.S, *st[-1]) and _solvable_on(board.S, *st[-2]), tempt
+    T = dict(go=0.9, step=0.42, fast=0.11)
+    T["jam"] = T["go"] + len(tempt) * T["step"]          # the tempting push lands: deadlock
+    T["rw0"] = T["jam"] + 0.85                            # Agima rewinds its imagined push...
+    T["rw1"] = T["rw0"] + max(0.35, 0.16 * len(tempt))
+    T["is0"] = T["rw1"] + 0.3                             # ...imagines another route to the end...
+    T["is1"] = T["is0"] + len(sol) * T["fast"]
+    T["act0"] = T["is1"] + 0.5                            # ...and acts on it
+    T["act1"] = T["act0"] + len(sol) * T["fast"]
+    T["dur"] = T["act1"] + 2.1
+    return dict(board=board, tempt=tempt, st=st, ss=ss, rows=rows, T=T, box=next(iter(st[-1][1] - st[-2][1])))
+
+
+def _solvable_on(S, p, boxes):
+    """BFS over pushes: can this level still be solved from (p, boxes)?"""
+    def reach(p, bx):
+        seen = {p}; q = deque([p])
+        while q:
+            r, c = q.popleft()
+            for dr, dc in DIRS:
+                n = (r + dr, c + dc)
+                if n not in seen and n not in S.walls and n not in bx:
+                    seen.add(n); q.append(n)
+        return seen
+    start = (min(reach(p, boxes)), boxes); seen = {start}; q = deque([(p, boxes)])
+    while q:
+        pp, bb = q.popleft()
+        if bb <= S.goals:
+            return True
+        R = reach(pp, bb)
+        for b in bb:
+            for dr, dc in DIRS:
+                stand, to = (b[0] - dr, b[1] - dc), (b[0] + dr, b[1] + dc)
+                if stand in R and to not in S.walls and to not in bb:
+                    nb = frozenset((bb - {b}) | {to}); k = (min(reach(b, nb)), nb)
+                    if k not in seen:
+                        seen.add(k); q.append((b, nb))
+    return False
+
+
+TRAP_DEAD = _trap(BOARD, ["down", "left"], V2.SOLVE_MOVES, (0, 8))
+TRAP_FORK = _trap(FORK_B, ["up"], V2.T.FORK.solve(), (3, 8))   # the fork's play area: rows 3-7 (8:5)
+
+
+def _trap_pair(v, t, P):
+    pl, pr = ease_out(prog(t, 0.0, 0.4)), ease_out(prog(t, 0.1, 0.4))
+    panel(v, TP_L, pl); panel(v, TP_R, pr)
+    with on_white():
+        _trap_pair_marks(v, t, P, pl, pr)
+
+
+def _trap_pair_marks(v, t, P, pl, pr):
+    T, b, rows = P["T"], P["board"], P["rows"]
+    w = TP_S; h = TP_S * (rows[1] - rows[0]) / 8; cs = w / 8
+    top, bot = TP_Y - h / 2, TP_Y + h / 2
+    tag_y, ver_y = bot + 36, bot + 98
+    jam = T["jam"]
+    head2(v, TP_L[0] + 30, 104, "Without imagination", INK, None, pl, size=33)
+    head2(v, TP_R[0] + 30, 104, "Agima", ACCENT, "imagines first", pr, size=33)
+
+    # left: the tempting push, made for real
+    jx = jolt(t, jam)
+    im = b.at(P["st"], t - T["go"], T["step"])
+    bcard(v, _crop(im, rows), TP_XL + jx, TP_Y, w, h, pl, "jam" if t >= jam else "real")
+    v.pill(TP_XL - w / 2, top - 26, "real board", INK, None, pl, size=17)
+    jam_ring(v, *_cell(TP_XL + jx, TP_Y, w, h, rows, P["box"]), cs, prog(t, jam, 0.5))
+    v.stamp(TP_XL + w / 2 + jx, top, False, prog(t, jam + 0.12, 0.3), r=22)
+    move_tag(v, TP_XL, tag_y, P["tempt"], t, T["go"], T["step"], INK, 1.6, until=jam + 0.5)
+    cpill(v, TP_XL, ver_y, "deadlock", RED, False, ease_out(prog(t, jam + 0.35, 0.3)), 24)
+
+    # right: Agima's real board waits while it imagines, then acts on the plan that worked
+    acting = t >= T["act0"]
+    im = b.at(P["ss"], t - T["act0"], T["fast"])
+    bcard(v, _crop(im, rows), TP_XR, TP_Y, w, h, pr, "done" if acting else "real")
+    v.pill(TP_XR - w / 2, top - 26, "real board", INK, None, pr, size=17)
+    v.stamp(TP_XR + w / 2, top, True, prog(t, T["act1"], 0.3), r=22)
+    cpill(v, TP_XR, ver_y, "solved", GREEN, True, ease_out(prog(t, T["act1"] + 0.15, 0.3)), 24)
+    small_arrow(v, (TP_XR + w / 2 + 8, TP_Y), (TP_XI - w / 2 - 8, TP_Y), ACCENT, pr * 0.8)
+    # ...and the board it imagines: the tempting push first (a dead end), rewound, then another route
+    if t < T["rw0"]:
+        im = b.at(P["st"], t - T["go"], T["step"])
+    elif t < T["is0"]:
+        im = b.at(P["st"][::-1], t - T["rw0"], (T["rw1"] - T["rw0"]) / len(P["tempt"]))
+    else:
+        im = b.at(P["ss"], t - T["is0"], T["fast"])
+    dead = jam <= t < T["rw0"] + 0.08
+    ip = prog(t, T["go"] - 0.45, 0.35)
+    ijx = jolt(t, jam)
+    bcard(v, _crop(im, rows), TP_XI + ijx, TP_Y, w, h, ease_out(ip) * pr, "dead" if dead else "imag", 0.85 + 0.15 * back_out(ip))
+    v.pill(TP_XI - w / 2, top - 26, "imagined", ACCENT, None, ease_out(ip) * pr, size=17)
+    if dead:
+        jam_ring(v, *_cell(TP_XI + ijx, TP_Y, w, h, rows, P["box"]), cs, prog(t, jam, 0.5))
+    if t < T["rw0"] + 0.3:
+        v.stamp(TP_XI + w / 2 + ijx, top, False, prog(t, jam + 0.12, 0.3) * (1 - prog(t, T["rw0"], 0.3)), r=22)
+    v.stamp(TP_XI + w / 2, top, True, prog(t, T["is1"], 0.3), r=22)
+    move_tag(v, TP_XI, tag_y, P["tempt"], t, T["go"], T["step"], RED if dead else ACCENT, 1.6, until=T["rw0"] - 0.1)
+    ra = min(ease_out(prog(t, T["rw0"], 0.15)), 1 - ease_out(prog(t, T["rw1"] + 0.1, 0.2)))
+    rewind_pill(v, TP_XI, tag_y, ra, 1.5)
+
+
+def sc_trap_deadlock(v, t, dur):
+    _trap_pair(v, t, TRAP_DEAD)
+
+
+def sc_trap_fork(v, t, dur):
+    _trap_pair(v, t, TRAP_FORK)
+
+
+# --- Pacman route-order trap: the real episodes of the linear rollout (nearer food first, caught by the ghost) and of
+# forward thinking (farther food first, all food eaten), side by side with glowing trails
+def _pac_path(frames):
+    pts = []
+    for f in frames:
+        a = np.asarray(f).astype(int)
+        m = (a[..., 0] > 200) & (a[..., 1] > 190) & (a[..., 2] < 90)
+        ys, xs = np.nonzero(m)
+        pts.append((xs.mean() / a.shape[1], ys.mean() / a.shape[0]) if len(xs) else pts[-1])
+    return pts
+
+
+def _pac_food(frame):
+    """The food pellets on a frame, nearest to Pacman first (as fractions of the frame)."""
+    import cv2
+    a = np.asarray(frame)
+    n, _, st, cen = cv2.connectedComponentsWithStats((a.min(2) > 200).astype(np.uint8))
+    food = [cen[i] / a.shape[1] for i in range(1, n) if 9 <= st[i][2] <= 13 and 9 <= st[i][3] <= 13 and st[i][4] > 60]
+    me = np.array(_pac_path([frame])[0])
+    return sorted(food, key=lambda f: np.abs(f - me).sum())
+
+
+PAC_FOOD = _pac_food(V2.PAC_LIN[0])
+assert len(PAC_FOOD) == 2
+# (frames, title, remark, trail colour, verdict, solved, the food it goes for first, the frame that food is eaten on)
+PAC_CLIPS = [(V2.PAC_LIN, "Linear rollout", "nearer food first", RED, "caught by the ghost", False, PAC_FOOD[0], 3),
+             (V2.PAC_FWD, "Forward thinking", "farther food first", ACCENT, "all food eaten", True, PAC_FOOD[1], 5)]
+PAC_PATHS = [_pac_path(c[0]) for c in PAC_CLIPS]
+PAC_S, PAC_Y, PAC_STEP, PAC_GO = 430, 382, 0.32, 1.0
+PAC_PANELS = [(36, 44, 622, 684), (658, 44, 1244, 684)]
+PAC_DUR = PAC_GO + (max(len(c[0]) for c in PAC_CLIPS) - 1) * PAC_STEP + 2.3
+
+
+def sc_trap_pacman(v, t, dur):
+    for i, box in enumerate(PAC_PANELS):
+        p = ease_out(prog(t, 0.1 * i, 0.4))
+        panel(v, box, p)
+        with on_white():
+            _pac_marks(v, t, i, p, box)
+
+
+def _pac_marks(v, t, i, p, box):
+    s = PAC_S
+    (frames, title, sub, col, verdict, ok, food, eaten), path = PAC_CLIPS[i], PAC_PATHS[i]
+    head2(v, box[0] + 30, 104, title, ACCENT if ok else INK, sub, p, size=33)
+    cx = (box[0] + box[2]) / 2; cy = PAC_Y
+    tt = max(0.0, t - PAC_GO) / PAC_STEP
+    k = min(len(frames) - 1, int(tt))
+    end = k == len(frames) - 1
+    v.card(frames[k], cx, cy, s, p, r=12, outline=(GREEN if ok else RED) if end else None)
+    to_s = lambda q: (cx - s / 2 + q[0] * s, cy - s / 2 + q[1] * s)
+    # the food it goes for first, ringed until it is eaten
+    ra = ease_out(prog(t, 0.45, 0.35)) * p * (1 - ease_out(prog(t, PAC_GO + eaten * PAC_STEP - 0.12, 0.2)))
+    if ra > 0:
+        fx, fy = to_s(food); rr = 24 + 14 * (1 - ease_out(prog(t, 0.45, 0.5)))
+        v.d.ellipse(v.z(fx - rr, fy - rr, fx + rr, fy + rr), outline=fade(col, ra), width=5 * Z)
+    # the route so far, glowing
+    u = min(tt, len(path) - 1); n = int(u); f = u - n
+    pts = path[:n + 1] + ([(path[n][0] + (path[n + 1][0] - path[n][0]) * f, path[n][1] + (path[n + 1][1] - path[n][1]) * f)]
+                          if n + 1 < len(path) else [])
+    sp = [to_s(q) for q in pts]
+    if len(sp) >= 2 and t > PAC_GO:
+        glow_line(v, sp, col, 4, 11, 1.0)
+        glow_dot(v, sp[-1][0], sp[-1][1], 8, col)
+    if end:
+        te = PAC_GO + (len(frames) - 1) * PAC_STEP
+        if not ok:   # the capture: the ghost is drawn under Pacman on the last frame, so ring the cell where they meet
+            jam_ring(v, *to_s(path[-1]), s / 8, prog(t, te, 0.5))
+        v.stamp(cx + s / 2, cy - s / 2, ok, prog(t, te, 0.35), r=24)
+        cpill(v, cx, cy + s / 2 + 52, verdict, GREEN if ok else RED, ok, ease_out(prog(t, te + 0.1, 0.3)), 22)
+
+
+# --- the fork, before and after RL (an illustration on the page's fork trap, not a recorded run). Both models branch
+# (Fig. 6c); what RL changes is where: more branches land on critical steps like this fork (Fig. 6d). So before RL it
+# has no branch at this fork and takes the risky push; after RL it branches here, sees that push fail, takes the safe way
+FK_ROWS = (3, 8)
+FK_H = 130; FK_W = FK_H * 8 / 5
+FK_X = (172, 480, 788, 1096)
+FK_PANELS = ((36, 74, 1244, 292), (36, 308, 1244, 700))   # before RL, after RL
+FK_YA, FK_YB, FK_YR, FK_YS = 200, 522, 440, 618    # before RL; after RL: the real board, the risky branch, the safe way
+FK_SAFE = [1, 2, len(FORK_SOL) - 1]                 # the states imagined on the safe way (the last link skips ahead)
+FK_STEP = 0.12                                      # one acted move
+FK = dict(a_go=0.95, a_push=0.35, b_go=2.6, die=3.05, rw0=3.5, rw1=4.1, s_go=4.35, s_step=0.26, act=5.75)
+FK["s_ok"] = FK["s_go"] + 2 * FK["s_step"] + 0.45
+FK["act1"] = FK["act"] + FK_STEP * (len(FORK_SOL) - 1)
+FK_DUR = FK["act1"] + 2.2
+
+
+FORK_SOL_MOVES = V2.T.FORK.solve()
+
+
+def _fk(state):
+    return _crop(FORK_B.draw(state), FK_ROWS)
+
+
+def _partial(pts, f):
+    """The first fraction f of a polyline (by length)."""
+    if f <= 0:
+        return pts[:1]
+    pts = np.array(pts, float)
+    seg = np.hypot(*np.diff(pts, axis=0).T); cum = np.concatenate([[0], np.cumsum(seg)])
+    L = cum[-1] * clamp(f)
+    k = int(np.searchsorted(cum, L, side="right"))
+    out = [tuple(p) for p in pts[:k]]
+    if k < len(pts):
+        s = (L - cum[k - 1]) / max(seg[k - 1], 1e-6)
+        out.append(tuple(pts[k - 1] + (pts[k] - pts[k - 1]) * s))
+    return out
+
+
+def _fk_tag(v, x, y, move, col, pa):
+    action_tag(v, x, y, move, col, ease_out(pa), pop_r(pa, 16 * 1.3) / 16)
+
+
+def sc_clip_fork(v, t, dur):
+    pa_, pb_ = ease_out(prog(t, 0.0, 0.4)), ease_out(prog(t, 0.1, 0.4))
+    panel(v, FK_PANELS[0], pa_); panel(v, FK_PANELS[1], pb_)
+    la = ease_out(prog(t, 0.05, 0.4))
+    # legend, above the panels on the right
+    x = 1220
+    for lab, col, dashed in (("acted", GREEN, False), ("dead end", RED, True), ("imagined", ACCENT, True)):
+        fl = inter(16 * Z, b"SemiBold")
+        x -= v.tlen(lab, fl)
+        v.text((x, 47), lab, fl, fade(MUTED, la), "lm")
+        x -= 30
+        if dashed:
+            v.dashed_rect((x, 39, x + 20, 55), 5, fade(col, la), on=4, off=3)
+        else:
+            v.rrect((x, 39, x + 20, 55), 5, outline=fade(col, la), width=3)
+        x -= 26
+    with on_white():
+        _fork_marks(v, t, pa_, pb_)
+
+
+def _fork_marks(v, t, pa_, pb_):
+    w, h = FK_W, FK_H
+    # ---- before RL: no branch at this fork; it takes the risky push for real, and the puzzle jams
+    head2(v, 68, 122, "Before RL", RED, "no branch at this fork", pa_, size=26)
+    bcard(v, _fk(FORK_SOL[0]), FK_X[0], FK_YA, w, h, pa_, "real")
+    ta = FK["a_go"]; jam = ta + 0.1 + FK["a_push"]
+    a0, a1 = (FK_X[0] + w / 2 + 8, FK_YA), (FK_X[1] - w / 2 - 8, FK_YA)
+    q = ease_out(prog(t, ta, 0.2))
+    if q > 0:
+        v.line([a0, (a0[0] + (a1[0] - a0[0]) * q, FK_YA)], INK, 3)
+        _fk_tag(v, (a0[0] + a1[0]) / 2, FK_YA, "up", INK, prog(t, ta, POP_A))
+        p = prog(t, ta + 0.1, POP_F)
+        jx = jolt(t, jam)
+        bcard(v, _crop(FORK_B.at(FORK_WRONG, t - ta - 0.1, FK["a_push"]), FK_ROWS), FK_X[1] + jx, FK_YA, w, h, ease_out(p),
+              "jam" if t >= jam else "real", 0.85 + 0.15 * back_out(p))
+        jam_ring(v, *_cell(FK_X[1] + jx, FK_YA, w, h, FK_ROWS, next(iter(FORK_WRONG[1][1] - FORK_WRONG[0][1]))), w / 8,
+                 prog(t, jam, 0.5))
+        v.stamp(FK_X[1] + w / 2 + jx, FK_YA - h / 2, False, prog(t, jam + 0.1, 0.3), r=17)
+        cpill(v, FK_X[2], FK_YA, "deadlock", RED, False, ease_out(prog(t, jam + 0.2, 0.3)), 24)
+
+    # ---- after RL: it branches at the fork first
+    head2(v, 68, 356, "After RL", GREEN, "branches at the fork first", pb_, size=26)
+    mc = clamp((t - FK["act"]) / (FK_STEP * (len(FORK_SOL) - 1))) * (len(FORK_SOL) - 1)   # moves acted so far
+    acting = t >= FK["act"]
+    real_b = (FK_X[0], FK_YB)
+    # the real board stays at the fork; once the plan works it is acted on from here (solid green)
+    bcard(v, _fk(FORK_SOL[0]), real_b[0], real_b[1], w, h, pb_, "done" if acting else "real")
+    v.pill(real_b[0] - w / 2, real_b[1] - h / 2 - 22, "real board", INK, None, pb_, size=15)
+    # the risky branch: imagined, found dead, rewound
+    die = ease_out(prog(t, FK["die"], 0.3)); rwd = ease_out(prog(t, FK["rw1"], 0.3))
+    r0, r1 = (real_b[0] + w / 2 + 8, FK_YB - 22), (FK_X[1] - w / 2 - 8, FK_YR)
+    br = V2.bezier(r0, r1, 30, 0.5)
+    pa = prog(t, FK["b_go"], POP_A)
+    rcol = RED if die > 0.5 else ACCENT
+    if pa > 0:
+        v.pline(br, ease_out(pa), fade(rcol, 0.75 * (1 - 0.45 * rwd)), 2, dash=(6, 5))
+        p = prog(t, FK["b_go"] + ACT_LAG, POP_F)
+        jx = jolt(t, FK["die"])
+        bcard(v, _fk(FORK_WRONG[-1]), FK_X[1] + jx, FK_YR, w, h, ease_out(p) * (1 - 0.45 * rwd), "dead" if die > 0.5 else "imag",
+              0.85 + 0.15 * back_out(p))
+        if die > 0:
+            v.stamp(FK_X[1] + w / 2 + jx, FK_YR - h / 2, False, prog(t, FK["die"], 0.25) * (1 - 0.45 * rwd), r=17)
+    # the safe way: imagined step by step to the end, then acted on (the links glow green as the moves are made)
+    links = [V2.bezier((real_b[0] + w / 2 + 8, FK_YB + 22), (FK_X[1] - w / 2 - 8, FK_YS), 30, 0.5),
+             [(FK_X[1] + w / 2 + 8, FK_YS), (FK_X[2] - w / 2 - 8, FK_YS)],
+             [(FK_X[2] + w / 2 + 8, FK_YS), (FK_X[3] - w / 2 - 8, FK_YS)]]
+    for k, (si, link) in enumerate(zip(FK_SAFE, links)):
+        ta = FK["s_go"] + FK["s_step"] * k + (0.12 if k == 2 else 0)
+        pa = prog(t, ta, POP_A if k < 2 else 0.3)
+        if pa <= 0:
+            continue
+        done = mc >= si
+        prev = FK_SAFE[k - 1] if k else 0
+        if mc > prev:
+            glow_line(v, _partial(link, clamp((mc - prev) / (si - prev))), GREEN, 3, 9, 1.0)
+        if not done:
+            v.pline(link, ease_out(pa), fade(ACCENT, 0.75), 2, dash=(6, 5))
+        mx, my = _along(link, 0.5)
+        if k < 2:
+            _fk_tag(v, mx, my, FORK_SOL_MOVES[si - 1], GREEN if done else ACCENT, pa)
+        else:   # the rest of the way, skipped over: three dots
+            for j in (-1, 0, 1):
+                dx_ = mx + 12 * j
+                v.d.ellipse(v.z(dx_ - 4, my - 4, dx_ + 4, my + 4), fill=fade(GREEN if done else ACCENT, ease_out(pa)))
+        p = prog(t, ta + ACT_LAG, POP_F)
+        bcard(v, _fk(FORK_SOL[si]), FK_X[k + 1], FK_YS, w, h, ease_out(p), "done" if done else "imag", 0.85 + 0.15 * back_out(p))
+    v.stamp(FK_X[3] + w / 2, FK_YS - h / 2, True, prog(t, FK["s_ok"], 0.3), r=17)
+    cpill(v, FK_X[3], FK_YS - h / 2 - 34, "solved", GREEN, True, ease_out(prog(t, FK["act1"] + 0.1, 0.3)), 24)
+    # the risky push's action tag
+    pa = prog(t, FK["b_go"], POP_A)
+    if pa > 0:
+        mx, my = _along(br, 0.5)
+        _fk_tag(v, mx, my, "up", rcol, pa)
+    # the rewind runs back along the dead branch, to the real board (drawn last, on top of the tags)
+    rw = prog(t, FK["rw0"], FK["rw1"] - FK["rw0"])
+    if 0 < rw < 1:
+        path = [(FK_X[1], FK_YR)] + br[::-1]
+        x, y = _along(path, ease_io(rw))
+        ra = min(ease_out(rw / 0.15), ease_out((1 - rw) / 0.2))
+        glow_dot(v, x, y, 16, INK, 0.5 * ra)
+        rewind_pill(v, x, y - 40, ra, 1.0)
+
+
+CLIPS = {  # name: (scene, duration in s, poster time in s, what it shows)
+    "clip_method": (sc_search, SEARCH_DUR, SEARCH_DUR - 0.6, "the Sokoban imagination scene: imagine step by step, rewind dead ends, act"),
+    "clip_format": (sc_emerge_page, (EM_COMMIT + 2.4) * EM_SLOW, 11.9, "a new format emerges after RL (no curve: the page charts Fig. 6b)"),
+    "clip_fork": (sc_clip_fork, FK_DUR, FK_DUR - 1.0, "the fork before and after RL (illustration)"),
+    "clip_trap_deadlock": (sc_trap_deadlock, TRAP_DEAD["T"]["dur"], TRAP_DEAD["T"]["dur"] - 1.0,
+                           "deadlock trap: without imagination vs Agima"),
+    "clip_trap_fork": (sc_trap_fork, TRAP_FORK["T"]["dur"], TRAP_FORK["T"]["dur"] - 1.0, "fork trap: without imagination vs Agima"),
+    "clip_trap_pacman": (sc_trap_pacman, PAC_DUR, PAC_DUR - 1.0, "Pacman route-order trap: linear rollout vs forward thinking"),
+}
+
+
+def render_clip(name, out=None, crf=25):
+    """One clip, silent, fading in from and out to the background so it loops cleanly; plus a .webp poster beside it."""
+    fn, dur, t_poster, _ = CLIPS[name]
+    out = out or f"{SITE}/video/{name}.mp4"
+    cmd = ["ffmpeg", "-y", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{H}", "-r", str(FPS), "-i", "-",
+           "-an", "-c:v", "libx264", "-preset", "slow", "-crf", str(crf), "-pix_fmt", "yuv420p", "-movflags", "+faststart", out]
+    ff = subprocess.Popen(cmd, stdin=subprocess.PIPE)
+    n = int(round(dur * FPS))
+    for i in range(n):
+        ff.stdin.write(frame(fn, i / FPS, dur).tobytes())
+    ff.stdin.close(); ff.wait()
+    poster = os.path.splitext(out)[0] + ".webp"
+    frame(fn, t_poster, dur).save(poster, quality=85, method=6)
+    print(f"{name}: {n} frames, {n / FPS:.1f} s -> {out} ({os.path.getsize(out) // 1024} KB), poster {poster}")
+
+
+def render_clip_stills(name, outdir, n=8):
+    os.makedirs(outdir, exist_ok=True)
+    fn, dur, _, _ = CLIPS[name]
+    for k in range(n):
+        t = dur * (k + 0.5) / n
+        frame(fn, t, dur).save(f"{outdir}/{name}_{t:05.2f}.png")
+    print("stills ->", outdir)
+
+
 if __name__ == "__main__":
     import argparse
-    ap = argparse.ArgumentParser(description="Render the Agima teaser video.")
-    ap.add_argument("-o", "--out", default=OUT, help="output .mp4 (default: the site's assets/video/agima_teaser_v3.mp4)")
-    ap.add_argument("--stills", metavar="DIR", help="save preview stills of every scene to DIR instead of rendering the video")
+    ap = argparse.ArgumentParser(description="Render the Agima teaser video, or one of the page's clips.")
+    ap.add_argument("-o", "--out", default=None, help="output .mp4 (default: the site's assets/video/agima_teaser_v3.mp4, "
+                                                      "or assets/video/NAME.mp4 with --clip)")
+    ap.add_argument("--stills", metavar="DIR", help="save preview stills of every scene (or of the clip) to DIR instead of rendering")
     ap.add_argument("--no-audio", action="store_true", help="render without the sound effects")
+    ap.add_argument("--clip", metavar="NAME", help="render one silent clip for the page (see --list-clips), or 'all'")
+    ap.add_argument("--list-clips", action="store_true", help="list the clips --clip can render")
+    ap.add_argument("--crf", type=int, default=25, help="x264 quality for --clip (default 25)")
     args = ap.parse_args()
-    if args.stills:
+    if args.list_clips:
+        for k, (_, d, _, what) in CLIPS.items():
+            print(f"{k:20s} {d:5.1f} s  {what}")
+    elif args.clip:
+        names = list(CLIPS) if args.clip == "all" else [args.clip]
+        if any(nm not in CLIPS for nm in names):
+            ap.error(f"unknown clip {args.clip!r}; one of: {', '.join(CLIPS)}, all")
+        for nm in names:
+            if args.stills:
+                render_clip_stills(nm, args.stills)
+            else:
+                render_clip(nm, None if args.clip == "all" else args.out, args.crf)
+    elif args.stills:
         render_stills(args.stills)
     else:
-        render_video(args.out, audio=not args.no_audio)
+        render_video(args.out or OUT, audio=not args.no_audio)

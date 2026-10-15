@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Planning with Agentic Imagination | Agima</title>
-  <meta name="description" content="Agima teaches one omni model to imagine the visual consequences of its own actions and to plan with them before acting.">
+  <meta name="description" content="Agima: one autoregressive omni model that is both policy and world model. It interleaves actions with imagined frames and plans from them before acting.">
   <meta name="theme-color" content="#F7F5F0">
   <link rel="canonical" href="https://agentic-imagination.github.io/">
 
@@ -36,6 +36,8 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500;1,600&amp;family=Inter:wght@400;500;600;700&amp;display=swap">
   <link rel="stylesheet" href="assets/css/styles.css">
   <script defer src="assets/js/main.js"></script>
+  <script src="assets/js/rl-charts.js" defer></script>
+  <noscript><style>.rl-grid, .results-block, .trap-results { display: none; }</style></noscript>
 </head>
 <body id="top">
   <a class="skip-link" href="#main">Skip to content</a>
@@ -49,7 +51,6 @@
       </a>
       <ul class="toplinks">
         <li><a href="#tldr">TL;DR</a></li>
-        <li><a href="#overview">Abstract</a></li>
         <li><a href="#method">Method</a></li>
         <li><a href="#environments">Environments</a></li>
         <li><a href="#results">Results</a></li>
@@ -117,7 +118,7 @@
       <figure class="teaser hero-rise">
         <div class="teaser-glow" aria-hidden="true"></div>
         <div class="teaser-frame">
-          <video id="teaser-video" class="teaser-video" controls autoplay loop muted playsinline preload="metadata" poster="assets/video/agima_teaser_v3_poster.webp" width="1280" height="720" aria-label="Agima teaser: without imagination, a tempting push deadlocks a Sokoban puzzle; after a restart, the Agima model imagines a Sokoban plan step by step, rewinding at dead ends, and acts on the plan that works; easy-to-hard results; agentic RL: success on unseen puzzles climbs, and after RL it branches at the critical fork instead of taking the risky push; after RL, a new reasoning format emerges, merging the two formats it was taught">
+          <video id="teaser-video" class="teaser-video" controls autoplay muted loop playsinline preload="metadata" disablepictureinpicture data-name="teaser" poster="assets/video/agima_teaser_v3_poster.webp" width="1280" height="720" aria-label="Agima teaser: without imagination, a tempting push deadlocks a Sokoban puzzle; after a restart, the Agima model imagines a Sokoban plan step by step, rewinding at dead ends, and acts on the plan that works; easy-to-hard results; agentic RL: success on unseen puzzles climbs, and after RL it branches at the critical fork instead of taking the risky push; after RL, a new reasoning format emerges, merging the two formats it was taught">
             <source src="assets/video/agima_teaser_v3.mp4" type="video/mp4">
             Your browser does not support embedded video. <a href="assets/video/agima_teaser_v3.mp4">Open the teaser video</a>.
           </video>
@@ -128,10 +129,6 @@
             <span class="sound-state" aria-hidden="true">off</span>
           </button>
         </div>
-        <figcaption class="teaser-caption">
-          <span class="teaser-tag">Teaser · 38 s</span>
-          Best with sound: a blip per imagined frame, a knock per dead end, a swoosh per rewind, a ding per plan that works.
-        </figcaption>
       </figure>
     </header>
 
@@ -140,141 +137,46 @@
       <div class="wrap">
         <div class="tldr-head reveal">
           <h2 class="tldr-label" id="tldr-title">TL;DR</h2>
-          <p class="tldr-sentence">
-            Agima teaches <span class="c-blue">one omni model</span> to imagine the visual consequences of its own actions
-            and to <span class="c-green">plan with them before acting</span>.
-          </p>
-        </div>
-
-        <div class="findings">
-          <article class="finding finding-blue reveal">
-            <div class="finding-top">
-              <span class="finding-num">Finding 1</span>
-              <svg class="finding-glyph" viewBox="0 0 132 40" aria-hidden="true">
-                <rect class="g-real" x="2" y="8" width="24" height="24" rx="4"/>
-                <path class="g-edge" d="M30 20h10"/><path class="g-edge" d="M64 20h10"/><path class="g-edge" d="M98 20h10"/>
-                <rect class="g-imag" x="42" y="8" width="20" height="24" rx="4"/>
-                <rect class="g-imag" x="76" y="8" width="20" height="24" rx="4"/>
-                <rect class="g-imag" x="110" y="8" width="20" height="24" rx="4"/>
-              </svg>
-            </div>
-            <h3>Imagined frames become observations</h3>
-            <p>
-              One model proposes actions, <strong class="c-blue">generates images of where they lead</strong>, and then
-              <strong class="c-blue">treats these imagined frames as observations</strong>: it follows a plan forward,
-              tests an alternative move, or compares competing plans, all before touching the real environment.
+          <div class="tldr-body">
+            <p class="tldr-sentence">
+              Agima is one autoregressive omni model that is both <span class="c-green">policy</span> and
+              <span class="c-blue">world model</span>: it interleaves actions with imagined frames of where they lead,
+              and plans from those frames before acting.
             </p>
-            <div class="finding-stat">
-              <span class="stat-big c-blue">≤&nbsp;1%</span>
-              <span class="stat-label">success at K = 5 once its own imagined frames are swapped for blank or stale ones (vs. 40% in Sokoban, 37% in Pacman with them)</span>
-            </div>
-          </article>
-
-          <article class="finding finding-green reveal">
-            <div class="finding-top">
-              <span class="finding-num">Finding 2</span>
-              <svg class="finding-glyph" viewBox="0 0 132 40" aria-hidden="true">
-                <rect class="g-board" x="2" y="6" width="34" height="28" rx="4"/>
-                <rect class="g-box" x="9" y="16" width="8" height="8" rx="1.5"/><rect class="g-box" x="21" y="16" width="8" height="8" rx="1.5"/>
-                <path class="g-edge" d="M44 20h22"/><path class="g-edge g-head" d="M61 15l5 5-5 5"/>
-                <rect class="g-board" x="74" y="2" width="56" height="36" rx="4"/>
-                <rect class="g-box" x="82" y="9" width="8" height="8" rx="1.5"/><rect class="g-box" x="112" y="9" width="8" height="8" rx="1.5"/>
-                <rect class="g-box" x="94" y="23" width="8" height="8" rx="1.5"/><rect class="g-box" x="106" y="23" width="8" height="8" rx="1.5"/>
-              </svg>
-            </div>
-            <h3>Trained on easy, tested on hard</h3>
-            <p>
-              With supervised fine-tuning alone on <strong>two-box</strong> Sokoban, Agima solves
-              <strong class="c-green">40% of four-box puzzles</strong> while seeing the real board only
-              <strong>once every five moves</strong>. An action-only planner fine-tuned from the same backbone solves 2%.
+            <p class="tldr-spec">
+              Imagination formats: <strong>linear rollout</strong>, <strong>counterfactual branching</strong>, <strong>forward thinking</strong>.
+              Training: SFT on these formats, then RL with only a binary task-success reward.
             </p>
-            <div class="finding-bars" role="img" aria-label="Four-box Sokoban success: Agima 40%, action-only planner 2%.">
-              <div class="fb-row"><span class="fb-name">Agima</span><span class="fb-track"><span class="fb-bar fb-ours" style="--v:40%"></span></span><span class="fb-val">40%</span></div>
-              <div class="fb-row"><span class="fb-name">Action-only</span><span class="fb-track"><span class="fb-bar fb-base" style="--v:2%"></span></span><span class="fb-val">2%</span></div>
-            </div>
-          </article>
-
-          <article class="finding finding-amber reveal">
-            <div class="finding-top">
-              <span class="finding-num">Finding 3</span>
-              <svg class="finding-glyph" viewBox="0 0 132 40" aria-hidden="true">
-                <rect class="g-real" x="2" y="10" width="20" height="20" rx="4"/>
-                <path class="g-fork" d="M24 20 C40 20 42 7 58 7 H84"/>
-                <path class="g-fork" d="M24 20 C40 20 42 33 58 33 H96"/>
-                <path class="g-x" d="M89 2l10 10M99 2l-10 10"/>
-                <path class="g-check" d="M101 33l5 5 10-12"/>
-              </svg>
-            </div>
-            <h3>After RL, it imagines adaptively</h3>
-            <p>
-              Starting from the supervised model, RL with only a binary success reward changes how Agima imagines:
-              it drafts <strong class="c-amber">a second plan mainly when it foresees the first one failing</strong>,
-              and <strong class="c-amber">branches more often at critical decisions</strong>, where a single push would make the puzzle unsolvable.
-            </p>
-            <div class="finding-stat">
-              <span class="stat-big c-amber"><span class="nw">79% <span class="stat-arrow" aria-hidden="true">→</span></span><span class="visually-hidden"> to </span> <span class="nw">26–31%</span></span>
-              <span class="stat-label">of episodes with a second plan, before vs. after RL</span>
-            </div>
-          </article>
+          </div>
         </div>
       </div>
     </section>
 
-    <!-- ======================= 01 Abstract ======================= -->
-    <section class="chapter" id="overview" aria-labelledby="abstract">
-      <div class="wrap abstract-grid">
-        <div class="chapter-head reveal">
-          <p class="chapter-kicker"><span class="chapter-num">01</span><span class="chapter-tag">Overview</span></p>
-          <h2 id="abstract">Abstract</h2>
-          <span class="rule-ia" aria-hidden="true"></span>
-        </div>
-        <div class="prose reveal">
-          <p class="lead">
-            <mark>Agima imagines before it acts.</mark> One omni model proposes an action,
-            generates the frame it leads to, and keeps planning from that imagined frame
-            before touching the real environment.
-          </p>
-          <p>
-            A single push in Sokoban can make a puzzle unsolvable. Avoiding such errors requires
-            anticipating consequences before acting, which is especially hard when feedback is sparse
-            and actions cannot be undone. We introduce Agima, a training framework that teaches an agent
-            to imagine before it acts. A single omni model both proposes actions and generates images of
-            where they lead, then treats these imagined frames as observations. It can follow a plan
-            forward, test an alternative move, or compare competing plans, all before touching the real
-            environment. Supervised fine-tuning teaches these forms of imagination, and reinforcement
-            learning then optimizes the model's textual planning decisions using only binary task-success
-            rewards.
-          </p>
-          <p>
-            Across four environments spanning Maze2D, Sokoban, Pacman, and PushT, Agima plans in harder or
-            unseen configurations excluded from training. With supervised fine-tuning alone on two-box
-            Sokoban, it solves <strong class="c-green">40%</strong> of four-box puzzles while seeing the real board only once every five
-            moves; an action-only planner fine-tuned from the same backbone solves <strong>2%</strong>. After RL, Agima
-            solves more held-out Sokoban puzzles and adapts how it uses imagination: it drafts a second
-            plan mainly when it foresees the first one failing, and branches more often at critical
-            decisions.
-          </p>
-        </div>
-      </div>
-    </section>
-
-    <!-- ======================= 02 Method ======================= -->
-    <section class="chapter band-tint" id="method" aria-labelledby="method-title">
+    <!-- ======================= 01 Method ======================= -->
+    <section class="chapter" id="method" aria-labelledby="method-title">
       <div class="wrap">
         <div class="chapter-head reveal">
-          <p class="chapter-kicker"><span class="chapter-num">02</span><span class="chapter-tag">Method</span></p>
+          <p class="chapter-kicker"><span class="chapter-num">01</span><span class="chapter-tag">Method</span></p>
           <h2 id="method-title">How Agima <em class="hk hk-blue">imagines</em></h2>
           <span class="rule-ia" aria-hidden="true"></span>
-          <p class="chapter-lead">Each imagined frame becomes an observation for the next decision. Agima learns three ways to use them.</p>
+          <p class="chapter-lead">Actions and imagined frames are generated in one sequence; each imagined frame is the observation for the next action.</p>
         </div>
+
+        <figure class="clip-figure method-clip reveal">
+          <div class="clip">
+            <video class="clip-video" autoplay muted loop playsinline preload="metadata" disablepictureinpicture poster="assets/video/clip_method.webp" width="1280" height="720" data-name="method animation" aria-label="Sokoban: Agima imagines a plan step by step, crosses out and rewinds each dead end, then executes the plan that works on the real board.">
+              <source src="assets/video/clip_method.mp4" type="video/mp4">
+            </video>
+          </div>
+        </figure>
 
         <figure class="card figure-card imagine-figure reveal">
           <div class="team-diagram">
-            <a class="zoom" href="assets/images/fig1_overview.webp" target="_blank" rel="noopener"><img src="assets/images/fig1_overview.webp" width="2401" height="1150" alt="Planning with agentic imagination: (a) feedback after acting, (b) feedback through imagination with Agima, (c) counterfactual branching and forward thinking in Sokoban."><span class="zoom-hint" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-7 7M10 20H4v-6M4 20l7-7"/></svg><span>Full size</span></span><span class="visually-hidden"> (opens the full-size image)</span></a>
+            <a class="zoom" href="assets/images/fig1_overview.webp" target="_blank" rel="noopener"><img src="assets/images/fig1_overview.webp" width="2401" height="1150" loading="lazy" alt="Planning with agentic imagination: (a) feedback after acting, (b) feedback through imagination with Agima, (c) counterfactual branching and forward thinking in Sokoban."><span class="zoom-hint" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-7 7M10 20H4v-6M4 20l7-7"/></svg><span>Full size</span></span><span class="visually-hidden"> (opens the full-size image)</span></a>
             <span class="team-highlight team-highlight-primary" aria-hidden="true"></span>
           </div>
-          <!-- shown by main.js once the format cards below are wired up -->
-          <figcaption class="figure-hint" hidden><span>Select a card below to highlight its part of the figure.</span></figcaption>
+          <!-- main.js puts the Auto-play switch for the highlight here -->
+          <div class="figure-tools" hidden></div>
         </figure>
 
         <div class="format-grid">
@@ -295,7 +197,7 @@
               <text x="266" y="52" text-anchor="middle">…</text>
               <rect class="frame img" x="280" y="30" width="36" height="36" rx="3"/><text x="298" y="52" text-anchor="middle">ô</text>
             </svg>
-            <p>Imagine the next frame after each action and keep planning from it.</p>
+            <p>Imagine the frame after each action; plan on from it.</p>
           </article>
           <article class="format-card reveal" data-format-step="branch">
             <h3><span class="format-dot" aria-hidden="true"></span>Counterfactual branching</h3>
@@ -318,7 +220,7 @@
               <path class="edge" d="M243 76 H256" marker-end="url(#ah-br)"/>
               <text x="270" y="80" text-anchor="middle">…</text>
             </svg>
-            <p>Try another action, imagine where it leads, and reject it if it fails.</p>
+            <p>Imagine an alternative action; reject it if it fails.</p>
           </article>
           <article class="format-card reveal" data-format-step="forward">
             <h3><span class="format-dot" aria-hidden="true"></span>Forward thinking</h3>
@@ -341,26 +243,26 @@
               <rect class="frame good" x="179" y="59" width="34" height="34" rx="3"/><text x="196" y="80" text-anchor="middle">ô</text>
               <text class="glyph good" x="224" y="81">✓ commit</text>
             </svg>
-            <p>Imagine complete candidate plans and execute the one that succeeds.</p>
+            <p>Imagine complete candidate plans; commit to the one that succeeds.</p>
           </article>
         </div>
         <p class="legend-line reveal">
           <span><i class="lg lg-real" aria-hidden="true"></i>real frame</span>
-          <span><i class="lg lg-imag" aria-hidden="true"></i>imagined frame (dashed)</span>
+          <span><i class="lg lg-imag" aria-hidden="true"></i>imagined frame</span>
           <span><i class="lg lg-good" aria-hidden="true"></i>plan that works</span>
           <span><i class="lg lg-bad" aria-hidden="true"></i>dead end</span>
         </p>
       </div>
     </section>
 
-    <!-- ======================= 03 Environments ======================= -->
-    <section class="chapter" id="environments" aria-labelledby="env-title">
+    <!-- ======================= 02 Environments ======================= -->
+    <section class="chapter band-tint" id="environments" aria-labelledby="env-title">
       <div class="wrap">
         <div class="chapter-head reveal">
-          <p class="chapter-kicker"><span class="chapter-num">03</span><span class="chapter-tag">Environments</span></p>
+          <p class="chapter-kicker"><span class="chapter-num">02</span><span class="chapter-tag">Environments</span></p>
           <h2 id="env-title">Four environments, <em class="hk hk-muted">easy</em> to <em class="hk hk-blue">hard</em></h2>
           <span class="rule-ia" aria-hidden="true"></span>
-          <p class="chapter-lead">Four tasks with different dynamics. Agima trains on the easier setting (left) and is tested on a harder one it never saw (right). Each clip is a real environment rollout.</p>
+          <p class="chapter-lead">Trained on the easy split (left), tested on a harder split unseen in training (right).</p>
         </div>
         <div class="env-grid">
           <article class="card env-card reveal">
@@ -392,34 +294,23 @@
             </div>
           </article>
         </div>
-
-        <div class="card k-explainer reveal">
-          <div class="k-explainer-head">
-            <h3>Action chunks K</h3>
-            <p>K is how many actions Agima commits before it sees the real board again. In between, it plans from its own imagined frames. K = 1 is fully reactive; K = ∞ imagines the whole episode from a single frame.</p>
-          </div>
-          <div id="k-anim"></div>
-          <details class="k-details">
-            <summary>See it on a real Sokoban episode</summary>
-            <div id="k-chunks"></div>
-          </details>
-        </div>
       </div>
     </section>
 
-    <!-- ======================= 04 Results ======================= -->
-    <section class="chapter band-tint results-section" id="results" aria-labelledby="results-title">
+    <!-- ======================= 03 Results ======================= -->
+    <section class="chapter results-section" id="results" aria-labelledby="results-title">
       <div class="wrap">
         <div class="chapter-head reveal">
-          <p class="chapter-kicker"><span class="chapter-num">04</span><span class="chapter-tag">Results</span></p>
+          <p class="chapter-kicker"><span class="chapter-num">03</span><span class="chapter-tag">Results</span></p>
           <h2 id="results-title"><em class="hk hk-blue">Imagination</em> transfers to <em class="hk hk-green">harder tasks</em></h2>
           <span class="rule-ia" aria-hidden="true"></span>
+          <p class="chapter-lead"><strong>K</strong> = actions executed per real observation. Between observations, Agima plans from its own imagined frames.</p>
         </div>
         <div class="result-groups" role="group" aria-label="Headline results">
           <section class="card result-group reveal" aria-labelledby="transfer-heading">
             <div class="result-group-heading">
               <h3 id="transfer-heading">Easy-to-hard generalization</h3>
-              <p>Real board every five actions (K = 5). Compared with the same backbone trained without imagined frames.</p>
+              <p>K&nbsp;=&nbsp;5. Baseline: the same backbone fine-tuned without imagined frames (action-only).</p>
             </div>
             <div class="metrics">
               <article><span>40</span><strong>%</strong><p>Four-box Sokoban after training on two boxes (action-only: 2%)</p></article>
@@ -429,23 +320,23 @@
           <section class="card result-group reveal" aria-labelledby="traps-heading">
             <div class="result-group-heading">
               <h3 id="traps-heading">Planning traps</h3>
-              <p>Test sets where a locally reasonable move fails several steps later. One real frame, then pure imagination (K = ∞).</p>
+              <p>K&nbsp;=&nbsp;∞: one real frame, then imagination only.</p>
             </div>
             <div class="metrics">
-              <article><span>+38</span><strong>pp</strong><p>Two-box Sokoban Deadlock with forward thinking</p></article>
-              <article><span>+32</span><strong>pp</strong><p>Pacman route-order trap (G8/F4) with forward thinking</p></article>
+              <article><span>+38</span><strong>pp</strong><p>Two-box Deadlock: forward thinking over linear rollout (60% vs 22%)</p></article>
+              <article><span>+32</span><strong>pp</strong><p>Pacman route-order trap (G8/F4): forward thinking over linear rollout (54% vs 22%)</p></article>
             </div>
           </section>
         </div>
 
-        <noscript><p class="chart-note">The interactive charts and tables on this page need JavaScript.</p></noscript>
+        <noscript><p class="chart-note">The charts and tables on this page need JavaScript.</p></noscript>
 
         <div class="card results-block reveal">
           <div id="k-results"></div>
         </div>
         <div class="card results-block reveal">
           <div class="chart-controls"><h3>Agima reads its own imagined frames</h3></div>
-          <p class="chart-note">Same K = 5 model; only the imagined frames in its context are swapped. Blank or stale frames drop success to at most 1%. Ground-truth frames barely help in Sokoban (43% vs 40%) but lift Pacman to 81%.</p>
+          <p class="chart-note">Same K&nbsp;=&nbsp;5 model; only the imagined frames in its context are swapped.</p>
           <div class="ablation-figure">
             <div id="ablation"></div>
             <div class="chart-legend">
@@ -459,103 +350,131 @@
       </div>
     </section>
 
-    <!-- ======================= 05 Planning traps ======================= -->
-    <section class="chapter" id="traps" aria-labelledby="traps-title">
+    <!-- ======================= 04 Planning traps ======================= -->
+    <section class="chapter band-tint" id="traps" aria-labelledby="traps-title">
       <div class="wrap">
         <div class="chapter-head reveal">
-          <p class="chapter-kicker"><span class="chapter-num">05</span><span class="chapter-tag">Planning traps</span></p>
+          <p class="chapter-kicker"><span class="chapter-num">04</span><span class="chapter-tag">Planning traps</span></p>
           <h2 id="traps-title">Moves that look fine, until they <em class="hk hk-red">don’t</em></h2>
           <span class="rule-ia" aria-hidden="true"></span>
-          <p class="chapter-lead">Three test sets where a move that looks fine leads to failure several steps later. Everything runs at K = ∞.</p>
+          <p class="chapter-lead">Test sets where a locally reasonable move fails several steps later. K&nbsp;=&nbsp;∞.</p>
         </div>
-        <div class="trap-grid">
-          <article class="card trap-card reveal">
-            <h3>Deadlock</h3>
-            <div class="trap-pair">
-              <figure><img src="assets/images/traps/deadlock_start.webp" width="256" height="256" loading="lazy" alt="Three-box Sokoban puzzle at the start."><figcaption>Start</figcaption></figure>
-              <span class="trap-arrow" aria-hidden="true">→</span>
-              <figure><img src="assets/images/traps/deadlock_after_push.webp" width="256" height="256" loading="lazy" alt="After one tempting push, a box is stuck in a corner."><figcaption>One tempting push</figcaption></figure>
+        <div class="trap-list">
+          <article class="trap-row reveal">
+            <div class="trap-copy">
+              <h3>Deadlock</h3>
+              <p>A legal push leaves a box that can never reach a goal. 2, 3 and 4 boxes, 100 puzzles each.</p>
             </div>
-            <p>A legal push leaves a box where it can never reach a goal, so the puzzle is already lost. 2, 3 and 4 boxes, 100 puzzles each.</p>
+            <div class="clip">
+              <video class="clip-video" autoplay muted loop playsinline preload="metadata" disablepictureinpicture poster="assets/video/clip_trap_deadlock.webp" width="1280" height="720" data-name="Deadlock animation" aria-label="Deadlock trap. Without imagination, the tempting push jams a box. Agima imagines that push, sees the deadlock, rewinds and takes another route.">
+                <source src="assets/video/clip_trap_deadlock.mp4" type="video/mp4">
+              </video>
+            </div>
           </article>
-          <article class="card trap-card reveal">
-            <h3>Structural Fork</h3>
-            <div class="trap-pair">
-              <figure><img src="assets/images/traps/fork_critical_step.webp" width="256" height="256" loading="lazy" alt="Sokoban puzzle at a critical step of the solution."><figcaption>Critical step</figcaption></figure>
-              <span class="trap-arrow" aria-hidden="true">→</span>
-              <figure><img src="assets/images/traps/fork_wrong_push.webp" width="256" height="256" loading="lazy" alt="After the wrong push, a box is pinned against the wall."><figcaption>Wrong push</figcaption></figure>
+          <article class="trap-row reveal">
+            <div class="trap-copy">
+              <h3>Structural Fork</h3>
+              <p>At a critical step several pushes are legal; only some keep the puzzle solvable. 2, 3 and 4 boxes, 100 puzzles each.</p>
             </div>
-            <p>The solution passes through steps where several pushes are legal but only some keep the puzzle solvable. 2, 3 and 4 boxes, 100 puzzles each.</p>
+            <div class="clip">
+              <video class="clip-video" autoplay muted loop playsinline preload="metadata" disablepictureinpicture poster="assets/video/clip_trap_fork.webp" width="1280" height="720" data-name="Structural Fork animation" aria-label="Fork trap. Without imagination, the wrong push at the critical step deadlocks. Agima branches, sees that push fail in imagination, and takes the right push.">
+                <source src="assets/video/clip_trap_fork.mp4" type="video/mp4">
+              </video>
+            </div>
           </article>
-          <article class="card trap-card reveal">
-            <h3>Pacman Route-order</h3>
-            <div class="trap-pair">
-              <figure><img src="assets/images/traps/pacman_trap_start.webp" width="256" height="256" loading="lazy" alt="Pacman level at the start."><figcaption>Start</figcaption></figure>
-              <span class="trap-arrow" aria-hidden="true">→</span>
-              <figure><img src="assets/images/traps/pacman_trap_decision.webp" width="256" height="256" loading="lazy" alt="Decision point: the nearer food is circled in red, the farther food in teal."><figcaption>Decision point</figcaption></figure>
+          <article class="trap-row reveal">
+            <div class="trap-copy">
+              <h3>Pacman Route-order</h3>
+              <p>The <span class="key near">nearer food</span> first gets Pacman caught; the <span class="key far">farther food</span> first clears the level. 8×8 grids with 2 to 8 food, plus 10×10 with 8.</p>
             </div>
-            <p>Eating the <span class="key near">nearer food</span> first looks safe but gets Pacman caught later; the <span class="key far">farther food</span> first solves the level. 8×8 grids with 2 to 8 food, plus 10×10 with 8.</p>
+            <div class="clip">
+              <video class="clip-video" autoplay muted loop playsinline preload="metadata" disablepictureinpicture poster="assets/video/clip_trap_pacman.webp" width="1280" height="720" data-name="Pacman Route-order animation" aria-label="Pacman route-order trap. Linear rollout eats the nearer food first and is caught by the ghost; forward thinking goes for the farther food first and clears the level.">
+                <source src="assets/video/clip_trap_pacman.mp4" type="video/mp4">
+              </video>
+            </div>
           </article>
         </div>
 
         <div class="card trap-results reveal">
           <div id="reasoning-results"></div>
         </div>
-
-        <div class="trap-example reveal">
-          <div class="analysis-copy">
-            <h3>Forward thinking escapes the Pacman trap</h3>
-            <p>A single rollout eats the nearer food and is caught later. Forward thinking imagines both routes and commits to the one that survives.</p>
-          </div>
-          <figure class="card figure-card trap-example-figure"><a class="zoom" href="assets/images/fig3_forward_vs_linear.webp" target="_blank" rel="noopener"><img src="assets/images/fig3_forward_vs_linear.webp" width="2400" height="834" loading="lazy" alt="Pacman: a linear rollout is caught; forward thinking compares two imagined futures and picks the surviving one."><span class="zoom-hint" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-7 7M10 20H4v-6M4 20l7-7"/></svg><span>Full size</span></span><span class="visually-hidden"> (opens the full-size image)</span></a></figure>
-        </div>
       </div>
     </section>
 
-    <!-- ======================= 06 RL ======================= -->
-    <section class="chapter band-tint analysis-section" id="rl" aria-labelledby="rl-title">
+    <!-- ======================= 05 RL ======================= -->
+    <section class="chapter analysis-section" id="rl" aria-labelledby="rl-title">
       <div class="wrap">
         <div class="chapter-head reveal">
-          <p class="chapter-kicker"><span class="chapter-num">06</span><span class="chapter-tag">Agentic RL</span></p>
+          <p class="chapter-kicker"><span class="chapter-num">05</span><span class="chapter-tag">Agentic RL</span></p>
           <h2 id="rl-title">Learning <em class="hk hk-amber">when</em> and <em class="hk hk-amber">where</em> to imagine</h2>
           <span class="rule-ia" aria-hidden="true"></span>
-          <p class="chapter-lead">Starting from the supervised models, RL on three-box Sokoban uses only a success reward. Nothing tells the model when to compare plans or where to branch.</p>
+          <p class="chapter-lead">RL from the SFT models on three-box Sokoban, with only a binary success reward.</p>
         </div>
+        <noscript>
+          <figure class="card figure-card rl-static"><img src="assets/images/fig4_rl_curves.webp" width="1547" height="542" loading="lazy" alt="Paper Figure 4: held-out accuracy on the deadlock and fork sets over 200 RL steps, 3 and 4 boxes."></figure>
+          <figure class="card figure-card rl-static"><img src="assets/images/fig6_adaptive_reasoning.webp" width="1921" height="507" loading="lazy" alt="Paper Figure 6: failure-triggered lookahead, unified-format share, branches per episode and critical-step alignment over RL steps."></figure>
+        </noscript>
+
         <div class="analysis-row reveal">
           <div class="analysis-copy">
             <span class="analysis-index" aria-hidden="true">A</span>
             <h3>RL improves held-out planning</h3>
-            <p>Every imagination-based model improves, including on four-box puzzles never seen during RL. The action-only model raises its training reward but stays near zero on the test sets.</p>
+            <p>Every imagination variant improves, including on four-box puzzles unseen in RL; the action-only model stays near zero.</p>
           </div>
-          <figure class="card figure-card"><a class="zoom" href="assets/images/fig4_rl_curves.webp" target="_blank" rel="noopener"><img class="chart-img" src="assets/images/fig4_rl_curves.webp" width="1547" height="542" loading="lazy" alt="RL training reward and held-out accuracy for four initializations."><span class="zoom-hint" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-7 7M10 20H4v-6M4 20l7-7"/></svg><span>Full size</span></span><span class="visually-hidden"> (opens the full-size image)</span></a></figure>
+          <div class="rl-grid">
+            <div class="card chart-card"><div class="rl-chart" data-chart="fig4b"></div></div>
+            <div class="card chart-card"><div class="rl-chart" data-chart="fig4c"></div></div>
+          </div>
         </div>
+
         <div class="analysis-row reveal">
           <div class="analysis-copy">
             <span class="analysis-index" aria-hidden="true">B</span>
             <h3>A second plan only when needed</h3>
-            <p>After RL, Agima drafts a second plan in 26–31% of episodes instead of 79%, and almost only when the first one really fails.</p>
+            <p>Second plans drop from 79% to 26–31% of episodes, follow a predicted failure of the first, and use the unified format.</p>
           </div>
-          <figure class="card figure-card"><a class="zoom" href="assets/images/fig5_rl_qualitative.webp" target="_blank" rel="noopener"><img src="assets/images/fig5_rl_qualitative.webp" width="2400" height="1118" loading="lazy" alt="Before RL a fixed two-candidate comparison; after RL the model rejects two failed plans before finding a successful third."><span class="zoom-hint" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-7 7M10 20H4v-6M4 20l7-7"/></svg><span>Full size</span></span><span class="visually-hidden"> (opens the full-size image)</span></a></figure>
+          <figure class="clip-figure">
+            <div class="clip">
+              <video class="clip-video" autoplay muted loop playsinline preload="metadata" disablepictureinpicture poster="assets/video/clip_format.webp" width="1280" height="720" data-name="new-format animation" aria-label="After RL, a new reasoning format emerges: the two formats taught by SFT merge into one unified format, a linear rollout first, then candidate plans one at a time after a predicted failure.">
+                <source src="assets/video/clip_format.mp4" type="video/mp4">
+              </video>
+            </div>
+          </figure>
+          <div class="rl-grid">
+            <div class="card chart-card"><div class="rl-chart" data-chart="fig6a"></div></div>
+            <div class="card chart-card"><div class="rl-chart" data-chart="fig6b"></div></div>
+          </div>
         </div>
+
         <div class="analysis-row reveal">
           <div class="analysis-copy">
             <span class="analysis-index" aria-hidden="true">C</span>
             <h3>Branching moves to critical decisions</h3>
-            <p>Agima opens more branches per plan and places more of them where a single push would make the puzzle unsolvable.</p>
+            <p>More branches per episode, placed more often where one push makes the puzzle unsolvable.</p>
           </div>
-          <figure class="card figure-card"><a class="zoom" href="assets/images/fig6_adaptive_reasoning.webp" target="_blank" rel="noopener"><img class="chart-img" src="assets/images/fig6_adaptive_reasoning.webp" width="1921" height="507" loading="lazy" alt="Adaptive use of imagination across RL checkpoints."><span class="zoom-hint" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-7 7M10 20H4v-6M4 20l7-7"/></svg><span>Full size</span></span><span class="visually-hidden"> (opens the full-size image)</span></a></figure>
+          <div class="rl-grid">
+            <div class="card chart-card"><div class="rl-chart" data-chart="fig6c"></div></div>
+            <div class="card chart-card"><div class="rl-chart" data-chart="fig6d"></div></div>
+          </div>
+          <figure class="clip-figure">
+            <div class="clip">
+              <video class="clip-video" autoplay muted loop playsinline preload="metadata" disablepictureinpicture poster="assets/video/clip_fork.webp" width="1280" height="720" data-name="fork illustration" aria-label="Illustration, not a recorded episode. Before RL, the model has no branch at this fork, takes the risky push and deadlocks. After RL, it branches at the fork, imagines the risky push failing, takes the safe way and solves the puzzle.">
+                <source src="assets/video/clip_fork.mp4" type="video/mp4">
+              </video>
+            </div>
+            <figcaption class="clip-caption"><span class="clip-tag">Illustration</span>Not a recorded episode. Both models branch; after RL, more branches land on critical steps like this fork (63% → 73%, 3 boxes).</figcaption>
+          </figure>
         </div>
       </div>
     </section>
 
     <!-- ======================= Citation ======================= -->
-    <section class="chapter citation-section" id="bibtex" aria-labelledby="bibtex-title">
+    <section class="chapter band-tint citation-section" id="bibtex" aria-labelledby="bibtex-title">
       <div class="wrap wrap-narrow">
         <div class="chapter-head reveal">
           <p class="chapter-kicker"><span class="chapter-tag">Cite</span></p>
           <h2 id="bibtex-title">Citation</h2>
           <span class="rule-ia" aria-hidden="true"></span>
-          <p class="chapter-lead">If Agima is useful in your work, please cite it with this BibTeX entry.</p>
         </div>
         <div class="citation-box reveal">
           <div class="citation-bar">
