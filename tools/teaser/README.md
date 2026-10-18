@@ -14,8 +14,8 @@ python tools/teaser/make_teaser_v3.py --stills DIR # preview stills of every sce
 
 The script works from any directory; paths are resolved relative to the script.
 
-The same script renders the short silent clips the project page shows, in the teaser's visual language
-(each fades in from and out to the background, so it loops; ~1-3 s per clip second to render):
+The same script renders short silent clips in the teaser's visual language (each fades in from and out to the
+background, so it loops; ~1-3 s per clip second to render). The page uses only `clip_fork`:
 
 ```bash
 python tools/teaser/make_teaser_v3.py --list-clips              # names, durations, what each shows

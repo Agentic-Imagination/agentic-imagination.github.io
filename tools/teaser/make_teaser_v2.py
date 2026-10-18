@@ -476,7 +476,7 @@ def sc_traps(v, t, dur):
 
 
 AUTHORS = [[("Jiaxin Ge", "1,*"), ("Junyi Zhang", "1,*"), ("Tianning Chai", "1,*"), ("Hanjun Yoo", "1")],
-           [("Chenyang Wang", "2"), ("Xiuyu Li", "2"), ("Weijia Shi", "3"), ("Angjoo Kanazawa", "1"), ("XuDong Wang", "1,4")],
+           [("Chenyang Wang", "2"), ("Xiuyu Li", "2"), ("Weijia Shi", "3"), ("XuDong Wang", "1,4")],
            [("Sewon Min", "1"), ("Luke Zettlemoyer", "3"), ("Trevor Darrell", "1,†"), ("Haiwen Feng", "1,2,†")]]
 AFFIL = [("1", "UC Berkeley"), ("2", "Impossible Research"), ("3", "University of Washington"), ("4", "Duke University")]
 
@@ -500,7 +500,7 @@ def sc_end(v, t, dur):
     p = ease_out(prog(t, 0.2, 0.7))
     v.ctext((W / 2, 228 + 16 * (1 - p)), "Agima", inter(104 * Z, b"Bold"), fade(INK, p))
     q = ease_out(prog(t, 0.5, 0.6))
-    v.ctext((W / 2, 312 + 10 * (1 - q)), "Planning with Agentic Imagination", inter(26 * Z), fade(MUTED, q))
+    v.ctext((W / 2, 312 + 10 * (1 - q)), "Training an Imaginative Agent", inter(26 * Z), fade(MUTED, q))
     w = 120 * ease_io(prog(t, 0.8, 0.6))
     v.line([(W / 2 - w, 352), (W / 2 + w, 352)], ACCENT, 3)
     for i, row in enumerate(AUTHORS):
