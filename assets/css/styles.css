@@ -801,7 +801,7 @@ p { text-wrap: pretty; }
 .is-good .f5-badge { background: var(--green); }
 .f5-badge svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
 /* step-by-step reveal (the boards, their action words, and each plan's result with its last board) */
-.f5-step .f5-act, .f5-step .f5-board img, .f5-step .f5-badge, .f5-out { opacity: 0; transition: opacity 280ms ease; }
+.f5-step .f5-act, .f5-step .f5-board img, .f5-step .f5-badge, .f5-out { opacity: 0; transition: opacity 160ms ease; }
 .f5-step:not(.is-on) .f5-board { outline-color: var(--line-strong); }
 .f5-step.is-on .f5-act, .f5-step.is-on .f5-board img, .f5-step.is-on .f5-badge, .f5-row.is-done .f5-out { opacity: 1; }
 .f5-step.is-now .f5-board { box-shadow: 0 0 0 6px rgba(38, 96, 224, .16); }

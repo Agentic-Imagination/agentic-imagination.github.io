@@ -172,7 +172,7 @@
     var full = root.querySelector(".fig5-full");
     if (full) full.hidden = false;
 
-    var view = "before", step = 0, timer = null, touched = false;
+    var view = "after", step = 0, timer = null, touched = false;   // the new format after RL is the point: shown first
     // the clock runs to the longest lane; a shorter lane stays complete once it has finished
     function total() { return Math.max.apply(null, units[view].map(function (l) { return l.length; })); }
     function render(announce) {
@@ -209,7 +209,7 @@
       timer = setInterval(function () {
         step++; render(false);
         if (step >= total()) stop();
-      }, 430);
+      }, 230);
     }
     function goto(s) { stop(); step = Math.max(0, Math.min(total(), s)); render(true); }
     function showView(v, restart) {
@@ -234,7 +234,7 @@
       if (t === undefined) return;
       touched = true; goto(t); e.preventDefault();
     });
-    showView("before", false);
+    showView("after", false);
     // auto-advance once, when the figure first scrolls into view
     onceVisible(stack, 0.3, function () { if (!touched && !reduced()) play(); });
   }
