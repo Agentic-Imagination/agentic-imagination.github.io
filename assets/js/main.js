@@ -1,7 +1,8 @@
 /* Agima project page: results tables and charts (with the "real board vs imagined" rollout viewer linked
    to the K table), the Figure 1 highlight, video playback, plus the page chrome (teaser sound toggle,
-   scroll reveal, section nav / reading progress). The RL charts live in rl-charts.js, the interactive
-   paper figures (traps, Fig. 3, Fig. 5) in figures.js. All numbers are copied from the paper (Tables 1-3). */
+   scroll reveal, section nav / reading progress). The RL charts live in rl-charts.js, Fig. 5 in figures.js,
+   the planning-trap animations in traps.js, the lightbox and Fig. 1 hotspots in lightbox.js.
+   All numbers are copied from the paper (Tables 1 and 3). */
 (function () {
   "use strict";
 
@@ -46,14 +47,6 @@
       ["Agima-A7B (No Imagine)", "noimg", [0, 0, 0, 3]],
       ["Agima-A7B", "ours", [6, 3, 19, 3]]
     ]
-  };
-  // Table 2: imagined frames replaced at inference (K = 5, hard splits).
-  var ABLATION = {
-    conditions: ["No Imagine", "Own predictions", "Blank", "Stale", "Oracle"],
-    notes: ["action-only model", "the model's own imagined frames", "uniform gray image",
-            "latest real observation", "ground-truth frames for the proposed actions"],
-    Sokoban: [2, 40, 1, 0, 43],
-    Pacman: [1, 37, 0, 0, 81]
   };
   // Table 3 (a) Sokoban and (b) Pacman route-order traps, K = infinity.
   var REASONING = {
@@ -140,25 +133,6 @@
     var a = document.activeElement;
     return nodes.some(function (n) { return n && (n.matches(":hover") || (a && a !== document.body && n.contains(a))); });
   }
-  var tip = null;
-  function tooltip(target, text) {
-    target.addEventListener("mouseenter", function (e) {
-      if (!tip) { tip = el("div", {class: "chart-tip", role: "status"}); document.body.appendChild(tip); }
-      tip.textContent = text; tip.hidden = false; place(e);
-    });
-    target.addEventListener("mousemove", place);
-    target.addEventListener("mouseleave", function () { if (tip) tip.hidden = true; });
-    // keep the tooltip inside the viewport: flip left of / above the pointer near the right and bottom edges
-    function place(e) {
-      if (!tip) return;
-      var r = tip.getBoundingClientRect();
-      var vw = document.documentElement.clientWidth || window.innerWidth, vh = window.innerHeight;
-      var x = e.clientX + 14, y = e.clientY + 14;
-      if (x + r.width > vw - 8) x = Math.max(8, e.clientX - r.width - 14);
-      if (y + r.height > vh - 8) y = Math.max(8, e.clientY - r.height - 10);
-      tip.style.left = x + "px"; tip.style.top = y + "px";
-    }
-  }
 
   /* ---------- 1. K results: a table (default) or line charts across K, linked to the rollout viewer ---------- */
   var KS = ["1", "3", "5", "10", "inf"];
@@ -212,7 +186,7 @@
     var controls = el("div", {class: "chart-controls"});
     controls.appendChild(el("h3", {text: "Success across K"}));
     var NOTE = {
-      table: "Success (%) on the hard test splits (PushT: far split). Bold = best per column; – = not evaluated. Click a K to play its rollout below.",
+      table: "Success on the hard test splits (PushT: far split). Bold = best per column; – = not evaluated. Click a column to compare and play its rollout below.",
       chart: "Success (%) on the hard test splits (PushT: far split), one line per method. Click a K to play its rollout below."
     };
     segmented(controls, "Results view", [["table", "Table"], ["chart", "Chart"]], state.view, function (v) {
@@ -264,15 +238,39 @@
       ENVS.forEach(function (_, ei) {
         KS.forEach(function (k) {
           var v = value(m.name, k, ei);
-          var td = el("td", {"data-e": String(ei), "data-k": k, text: v === null ? "–" : String(v)});
-          if (v === null) { td.className = "is-na"; td.title = "not evaluated"; }
-          else if (v === best[ei + "/" + k]) td.className = "is-best";
+          var td = el("td", {"data-e": String(ei), "data-k": k});
+          if (v === null) { td.textContent = "–"; td.className = "is-na"; td.title = "not evaluated"; }
+          else {
+            // the number sits in its own box, so results.css can scale it without moving the row
+            td.appendChild(el("span", {class: "kt-n"}, [document.createTextNode(String(v)), el("span", {class: "kt-pct", text: "%"})]));
+            if (v === best[ei + "/" + k]) td.className = "is-best";
+          }
           tr.appendChild(td);
         });
       });
       tb.appendChild(tr);
     });
     t.appendChild(tb);
+    // a click or tap anywhere in a column selects it, like its K button in the header
+    tb.addEventListener("click", function (e) {
+      var td = e.target.closest ? e.target.closest("td[data-k]") : null;
+      if (td) pick(+td.getAttribute("data-e"), td.getAttribute("data-k"));
+    });
+    // hovering a method row (mouse) sets it against Agima's row: Agima's numbers stand out, the other rows fade
+    var hotRow = null;
+    function setHot(tr) {
+      if (tr === hotRow) return;
+      if (hotRow) hotRow.classList.remove("is-hot");
+      hotRow = tr;
+      if (tr) tr.classList.add("is-hot");
+      t.classList.toggle("is-compare", !!tr);
+    }
+    tb.addEventListener("pointerover", function (e) {
+      if (e.pointerType !== "mouse") return;
+      var tr = e.target.closest ? e.target.closest("tr") : null;
+      if (tr && !tr.classList.contains("group-row")) setHot(tr);   // a group label row keeps the current row
+    });
+    tb.addEventListener("pointerleave", function () { setHot(null); });
     table.appendChild(t);
     // phones show one environment at a time (tabs); wider screens show all four side by side
     var tableBox = el("div", {class: "kt-box"});
@@ -356,7 +354,7 @@
       var vals = series.map(function (m) { return KS.map(function (k) { return value(m.name, k, ei); }); });
       var ours = vals[series.length - 1];
       var svgEl = sv("svg", {class: "kc-svg", role: "img", tabindex: "0",
-        "aria-label": env + ": success (%) across K. Agima: " + ours.map(function (v, i) { return v + " at K = " + KLABEL[KS[i]]; }).join(", ") +
+        "aria-label": env + ": success across K. Agima: " + ours.map(function (v, i) { return (v === null ? "not evaluated" : v + "%") + " at K = " + KLABEL[KS[i]]; }).join(", ") +
           ". Left and right arrow keys pick a K; the table view lists every value."});
       var tip = el("div", {class: "kc-tip", "aria-hidden": "true", hidden: ""});
       var plot = el("div", {class: "kc-plot"}, [svgEl, tip]);
@@ -423,7 +421,7 @@
       [0, 25, 50, 75, 100].forEach(function (v) {
         var y = Math.round(g.y(v)) + 0.5;
         sv("line", {class: v === 0 ? "kc-base" : "kc-gl", x1: m.l, x2: W - m.r, y1: y, y2: y}, s);
-        sv("text", {class: "kc-tick", x: m.l - 7, y: y + 3.8, "text-anchor": "end"}, s).textContent = v === 100 ? "100%" : String(v);
+        sv("text", {class: "kc-tick", x: m.l - 7, y: y + 3.8, "text-anchor": "end"}, s).textContent = v + "%";
       });
       KS.forEach(function (k, i) {
         sv("text", {class: "kc-tick" + (i === si ? " is-sel" : ""), x: g.x(i), y: H - 10, "text-anchor": "middle"}, s).textContent = KLABEL[k];
@@ -718,28 +716,7 @@
     return {node: node, set: function (ei, k) { set(ei, k); }};
   }
 
-  /* ---------- 2. imagination ablation ---------- */
-  function renderAblation(root) {
-    var grid = el("div", {class: "bar-grid bar-grid-2"});
-    ["Sokoban", "Pacman"].forEach(function (env) {
-      var panel = el("div", {class: "bar-panel"}, [el("h4", {text: env + " (K = 5)"})]);
-      ABLATION.conditions.forEach(function (c, i) {
-        var v = ABLATION[env][i];
-        var cls = c === "Own predictions" ? "ours" : c === "Oracle" ? "oracle" : c === "No Imagine" ? "noimg" : "other";
-        var row = el("div", {class: "bar-row"}, [
-          el("span", {class: "bar-name", text: c}),
-          el("span", {class: "bar-track"}, [el("div", {class: "bar bar-" + cls, style: "width:" + Math.max(v, 0.6) + "%"})]),
-          el("span", {class: "bar-val", text: v + "%"})
-        ]);
-        tooltip(row, env + " · " + c + " (" + ABLATION.notes[i] + "): " + v + "%");
-        panel.appendChild(row);
-      });
-      grid.appendChild(panel);
-    });
-    root.appendChild(grid);
-  }
-
-  /* ---------- 3. reasoning tables ---------- */
+  /* ---------- 2. reasoning tables ---------- */
   function renderReasoning(root) {
     var state = {task: "sokoban"};
     var controls = el("div", {class: "chart-controls"});
@@ -763,15 +740,16 @@
           [el("td", {text: r[0]})].concat(r[2].map(function (v, ci) {
             var delta = r[1] === "ours" ? v - lin[2][ci] : null;
             var cell = el("td", {class: v === best[ci] ? "is-best" : ""}, [document.createTextNode(v + "%")]);
-            if (delta !== null) cell.appendChild(el("span", {class: "delta " + (delta > 0 ? "up" : delta < 0 ? "down" : "flat"), text: (delta > 0 ? "+" : "") + delta}));
+            // written as in the paper's Table 3: +8%, +0%, −3%
+            if (delta !== null) cell.appendChild(el("span", {class: "delta " + (delta > 0 ? "up" : delta < 0 ? "down" : "flat"), text: (delta < 0 ? "−" : "+") + Math.abs(delta) + "%"}));
             return cell;
           }))));
       });
       t.appendChild(tb);
       wrap.innerHTML = ""; wrap.appendChild(t);
       wrap.appendChild(el("p", {class: "table-foot", text: state.task === "sokoban"
-        ? "All models trained on two-box Sokoban and run at K = ∞. Bold = best in column; small numbers = change vs. linear-rollout Agima (points)."
-        : "Route-order traps: collecting the nearer food first leaves no safe way to finish. G = grid size, F = food items. K = ∞."}));
+        ? "All models trained on two-box Sokoban and run at K = ∞. Bold = best in column; small numbers = change vs. Agima-A7B in percentage points."
+        : "Route-order traps: collecting the nearer food first leaves no safe way to finish. G = grid size, F = food items. K = ∞. Bold = best in column; small numbers = change vs. Agima-A7B in percentage points."}));
     }
     draw();
   }
@@ -1072,7 +1050,6 @@
   function boot() {
     var m;
     if ((m = document.getElementById("k-results"))) renderKResults(m);
-    if ((m = document.getElementById("ablation"))) renderAblation(m);
     if ((m = document.getElementById("reasoning-results"))) renderReasoning(m);
     initCopy(); initImagineAnimation(); initClips();
     initVideos(); initSound(); initNav(); initTodoLinks(); initReveal();

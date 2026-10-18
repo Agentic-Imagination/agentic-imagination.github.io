@@ -1,0 +1,65 @@
+/* Agima project page: hero author links, the TL;DR keywords, and the emphasis in the
+   "Success across K" table (03). Loaded after styles.css; uses its tokens. */
+
+/* ---------- hero: author names link to their homepages (the affiliation marks stay outside the link) ---------- */
+/* a faint underline at rest, so the names read as links on touch screens too (no hover there) */
+.author-link {
+  color: inherit;
+  text-decoration: underline 1px rgba(22, 22, 24, .28);
+  text-underline-offset: .22em;
+  transition: text-decoration-color 180ms ease, color 180ms ease;
+}
+.author-link:hover { color: var(--blue-ink); text-decoration-color: currentColor; }
+.author-link:focus-visible { border-radius: 3px; outline-offset: 1px; }
+
+/* ---------- TL;DR: one sentence; "Agentic Imagination" and "imagine before it acts" in the title's keyword styles ---------- */
+.tldr-sentence { max-width: 50rem; }
+.tldr-key { font-weight: 600; white-space: nowrap; }
+.tldr-sentence .kw-agentic { color: var(--green-ink); }
+.tldr-sentence .kw::after { bottom: .06em; height: .06em; min-height: 2px; }
+
+/* ---------- 03: the chapter title never breaks inside "Easy-to-hard" ---------- */
+.nobr { white-space: nowrap; }
+
+/* ---------- Success across K: every number carries a %; selecting a column (a click or tap anywhere in it,
+   or its K button) or hovering a row brings out Agima's numbers and fades the others ---------- */
+.kt td[data-k] { cursor: pointer; text-align: center; }
+.kt-n {
+  display: inline-block;
+  transform-origin: 50% 55%;
+  transition: transform 300ms var(--ease), color 200ms ease, opacity 200ms ease;
+}
+.kt-pct { margin-left: .04em; font-size: .82em; }
+.kt tr.is-ours .kt-n { color: var(--blue-ink); }
+
+/* the selected column: Agima's number grows, the others fade a little (the column's best number never fades,
+   so "Bold = best per column" stays true when another model holds it) */
+.kt tr.is-ours td.is-sel .kt-n,
+.kt.is-compare tr.is-ours .kt-n { transform: scale(1.25); font-weight: 700; }
+.kt tbody tr:not(.is-ours) td.is-sel:not(.is-best) .kt-n { opacity: .55; }
+.kt td.is-sel.is-na { color: #D9D5CB; }
+
+/* a hovered row is set against Agima's row; the rest fade */
+.kt tbody th { transition: color 200ms ease, background 200ms ease; }
+.kt.is-compare tbody tr:not(.is-ours):not(.is-hot):not(.group-row) td:not(.is-best) .kt-n { opacity: .4; }
+.kt.is-compare tbody tr:not(.is-ours):not(.is-hot):not(.group-row) th { color: #A9A59B; }
+.kt.is-compare tbody tr.is-hot td.is-sel .kt-n { opacity: 1; }
+.kt tbody tr.is-hot:not(.is-ours) th { background: #F5F7FD; }
+.kt tbody tr.is-hot:not(.is-ours) td { background: rgba(38, 96, 224, .045); }
+
+/* centred under the K buttons, with room on both sides for the enlarged number */
+.data-table.kt td[data-k] { min-width: 3.3em; padding-inline: 3px; }
+@media (max-width: 1120px) {
+  /* all four environments in less room: the columns take their content width; on hover Agima's numbers
+     only turn bold (no scale), so neighbours and the environment dividers keep their gap */
+  .data-table.kt td[data-k] { min-width: 0; }
+  .kt tbody th { min-width: 7.6em; }
+  .kt.is-compare tr.is-ours td:not(.is-sel) .kt-n { transform: none; }
+  .kt td.is-sel { box-shadow: none; }
+}
+@media (max-width: 900px) {
+  /* one environment at a time: five wide columns again */
+  .kt tbody th { min-width: 0; }
+  .kt.is-compare tr.is-ours td:not(.is-sel) .kt-n { transform: scale(1.25); }
+  .kt td.is-sel { box-shadow: inset 1.5px 0 0 var(--blue), inset -1.5px 0 0 var(--blue); }
+}

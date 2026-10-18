@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Training an Imaginative Agent | Agima</title>
-  <meta name="description" content="Agima: one autoregressive omni model that is both policy and world model. It interleaves actions with imagined frames and plans from them before acting.">
+  <meta name="description" content="Agima (Agentic Imagination) trains an agent to imagine before it acts: a single omni model proposes actions, generates images of their outcomes, and reasons over these imagined futures to decide what to execute.">
   <meta name="theme-color" content="#F7F5F0">
   <link rel="canonical" href="https://agentic-imagination.github.io/">
 
@@ -35,10 +35,15 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500;1,600&amp;family=Inter:wght@400;500;600;700&amp;display=swap">
   <link rel="stylesheet" href="assets/css/styles.css">
+  <link rel="stylesheet" href="assets/css/results.css">
+  <link rel="stylesheet" href="assets/css/traps.css">
+  <link rel="stylesheet" href="assets/css/lightbox.css">
   <script defer src="assets/js/main.js"></script>
   <script src="assets/js/rl-charts.js" defer></script>
   <script src="assets/js/figures.js" defer></script>
-  <noscript><style>.rl-grid, .results-block, .trap-results { display: none; }</style></noscript>
+  <script src="assets/js/traps.js" defer></script>
+  <script src="assets/js/lightbox.js" defer></script>
+  <noscript><style>.rl-grid, .rl-src, .results-block, .trap-results { display: none; }</style></noscript>
 </head>
 <body id="top">
   <a class="skip-link" href="#main">Skip to content</a>
@@ -76,18 +81,18 @@
 
         <div class="authors hero-rise">
           <p class="author-list">
-            <span class="author">Jiaxin Ge<sup class="author-mark">1,*</sup></span>
-            <span class="author">Junyi Zhang<sup class="author-mark">1,*</sup></span>
-            <span class="author">Tianning Chai<sup class="author-mark">1,*</sup></span>
-            <span class="author">Hanjun Yoo<sup class="author-mark">1</sup></span>
-            <span class="author">Chenyang Wang<sup class="author-mark">2</sup></span>
-            <span class="author">Xiuyu Li<sup class="author-mark">2</sup></span>
-            <span class="author">Weijia Shi<sup class="author-mark">3</sup></span>
-            <span class="author">XuDong Wang<sup class="author-mark">1,4</sup></span>
-            <span class="author">Sewon Min<sup class="author-mark">1</sup></span>
-            <span class="author">Luke Zettlemoyer<sup class="author-mark">3</sup></span>
-            <span class="author">Trevor Darrell<sup class="author-mark">1,†</sup></span>
-            <span class="author">Haiwen Feng<sup class="author-mark">1,2,†</sup></span>
+            <span class="author"><a class="author-link" href="https://gejiaxin.org/" target="_blank" rel="noopener">Jiaxin Ge</a><sup class="author-mark">1,*</sup></span>
+            <span class="author"><a class="author-link" href="https://www.junyi42.com/" target="_blank" rel="noopener">Junyi Zhang</a><sup class="author-mark">1,*</sup></span>
+            <span class="author"><a class="author-link" href="./">Tianning Chai</a><sup class="author-mark">1,*</sup></span>
+            <span class="author"><a class="author-link" href="https://github.com/lukehanjun" target="_blank" rel="noopener">Hanjun Yoo</a><sup class="author-mark">1</sup></span>
+            <span class="author"><a class="author-link" href="./">Chenyang Wang</a><sup class="author-mark">2</sup></span>
+            <span class="author"><a class="author-link" href="https://xiuyuli.com/" target="_blank" rel="noopener">Xiuyu Li</a><sup class="author-mark">2</sup></span>
+            <span class="author"><a class="author-link" href="https://weijiashi.notion.site/" target="_blank" rel="noopener">Weijia Shi</a><sup class="author-mark">3</sup></span>
+            <span class="author"><a class="author-link" href="https://xudongfrankwang.github.io/" target="_blank" rel="noopener">XuDong Wang</a><sup class="author-mark">1,4</sup></span>
+            <span class="author"><a class="author-link" href="https://www.sewonmin.com/" target="_blank" rel="noopener">Sewon Min</a><sup class="author-mark">1</sup></span>
+            <span class="author"><a class="author-link" href="https://www.cs.washington.edu/people/faculty/lsz/" target="_blank" rel="noopener">Luke Zettlemoyer</a><sup class="author-mark">3</sup></span>
+            <span class="author"><a class="author-link" href="https://people.eecs.berkeley.edu/~trevor/" target="_blank" rel="noopener">Trevor Darrell</a><sup class="author-mark">1,†</sup></span>
+            <span class="author"><a class="author-link" href="https://havenfeng.github.io/" target="_blank" rel="noopener">Haiwen Feng</a><sup class="author-mark">1,2,†</sup></span>
           </p>
           <p class="affiliations">
             <span class="affil"><sup>1</sup>University of California, Berkeley</span>
@@ -139,13 +144,9 @@
           <h2 class="tldr-label" id="tldr-title">TL;DR</h2>
           <div class="tldr-body">
             <p class="tldr-sentence">
-              Agima is one autoregressive omni model that is both <span class="c-green">policy</span> and
-              <span class="c-blue">world model</span>: it interleaves actions with imagined frames of where they lead,
-              and plans from those frames before acting.
-            </p>
-            <p class="tldr-spec">
-              Imagination formats: <strong>linear rollout</strong>, <strong>counterfactual branching</strong>, <strong>forward thinking</strong>.
-              Training: SFT on these formats, then RL with only a binary task-success reward.
+              Agima (<strong class="tldr-key"><span class="kw kw-agentic">Agentic</span> <span class="kw kw-imagination">Imagination</span></strong>)
+              trains an agent to <strong class="tldr-key"><span class="kw kw-imagination">imagine</span> before it <span class="kw kw-agentic">acts</span></strong>:
+              a single omni model generates images of where its actions lead and plans over these imagined futures.
             </p>
           </div>
         </div>
@@ -294,50 +295,15 @@
       <div class="wrap">
         <div class="chapter-head reveal">
           <p class="chapter-kicker"><span class="chapter-num">03</span><span class="chapter-tag">Results</span></p>
-          <h2 id="results-title"><em class="hk hk-blue">Imagination</em> transfers to <em class="hk hk-green">harder tasks</em></h2>
+          <h2 id="results-title"><span class="nobr">Easy-to-hard</span> generalization</h2>
           <span class="rule-ia" aria-hidden="true"></span>
           <p class="chapter-lead"><strong>K</strong> = actions executed per real observation. Between observations, Agima plans from its own imagined frames.</p>
-        </div>
-        <div class="result-groups" role="group" aria-label="Headline results">
-          <section class="card result-group reveal" aria-labelledby="transfer-heading">
-            <div class="result-group-heading">
-              <h3 id="transfer-heading">Easy-to-hard generalization</h3>
-              <p>K&nbsp;=&nbsp;5. Baseline: the same backbone fine-tuned without imagined frames (action-only).</p>
-            </div>
-            <div class="metrics">
-              <article><span>40</span><strong>%</strong><p>Four-box Sokoban after training on two boxes (action-only: 2%)</p></article>
-              <article><span>+36</span><strong>pp</strong><p>Pacman over the action-only model</p></article>
-            </div>
-          </section>
-          <section class="card result-group reveal" aria-labelledby="traps-heading">
-            <div class="result-group-heading">
-              <h3 id="traps-heading">Planning traps</h3>
-              <p>K&nbsp;=&nbsp;∞: one real frame, then imagination only.</p>
-            </div>
-            <div class="metrics">
-              <article><span>+38</span><strong>pp</strong><p>Two-box Deadlock: forward thinking over linear rollout (60% vs 22%)</p></article>
-              <article><span>+32</span><strong>pp</strong><p>Pacman route-order trap (G8/F4): forward thinking over linear rollout (54% vs 22%)</p></article>
-            </div>
-          </section>
         </div>
 
         <noscript><p class="chart-note">The charts and tables on this page need JavaScript.</p></noscript>
 
         <div class="card results-block reveal">
           <div id="k-results"></div>
-        </div>
-        <div class="card results-block reveal">
-          <div class="chart-controls"><h3>Agima reads its own imagined frames</h3></div>
-          <p class="chart-note">Same K&nbsp;=&nbsp;5 model; only the imagined frames in its context are swapped.</p>
-          <div class="ablation-figure">
-            <div id="ablation"></div>
-            <div class="chart-legend">
-              <span><i class="sw sw-ours"></i>Own predictions</span>
-              <span><i class="sw sw-oracle"></i>Ground-truth frames</span>
-              <span><i class="sw sw-noimg"></i>No Imagine</span>
-              <span><i class="sw sw-other"></i>Blank / stale</span>
-            </div>
-          </div>
         </div>
       </div>
     </section>
@@ -346,42 +312,76 @@
     <section class="chapter band-tint" id="traps" aria-labelledby="traps-title">
       <div class="wrap">
         <div class="chapter-head reveal">
-          <p class="chapter-kicker"><span class="chapter-num">04</span><span class="chapter-tag">Planning traps</span></p>
-          <h2 id="traps-title">Moves that look fine, until they <em class="hk hk-red">don’t</em></h2>
+          <p class="chapter-kicker"><span class="chapter-num">04</span><span class="chapter-tag">Traps</span></p>
+          <h2 id="traps-title">Planning traps</h2>
           <span class="rule-ia" aria-hidden="true"></span>
           <p class="chapter-lead">Test sets where a locally reasonable move fails several steps later. K&nbsp;=&nbsp;∞.</p>
         </div>
-        <div class="trap-grid">
-          <article class="card trap-card reveal">
-            <h3>Deadlock</h3>
-            <p>A legal push leaves a box that can never reach a goal. 2, 3 and 4 boxes, 100 puzzles each.</p>
-            <div class="compare" data-compare="deadlock" data-name="Deadlock">
-              <div class="compare-item"><img src="assets/images/traps/deadlock_start.webp" width="256" height="256" loading="lazy" alt="Deadlock trap, start: the agent can push the box beside it to the left."><span class="compare-cap">Start</span></div>
-              <div class="compare-item"><img src="assets/images/traps/deadlock_after_push.webp" width="256" height="256" loading="lazy" alt="After the push: the box sits in a corner that is not a goal; the puzzle can no longer be solved."><span class="compare-cap">After the push</span></div>
+        <div class="trap-demos">
+          <article class="card trap-demo reveal" aria-labelledby="trap-deadlock-title">
+            <div class="trap-copy">
+              <h3 id="trap-deadlock-title">Deadlock</h3>
+              <p>One push puts the nearer box on the goal beside it. That goal is the only one the farther box can ever reach, so the farther box is left with nowhere to go.</p>
+              <p class="trap-note">A 2-box level from Agima's Sokoban generator. Test sets: 2, 3 and 4 boxes, 100 puzzles each.</p>
+            </div>
+            <div class="trap-anim" data-trap="deadlock" data-title="Deadlock">
+              <div class="trap-runs">
+                <figure class="trap-run is-fail">
+                  <figcaption class="trap-label"><strong>Nearer box first</strong></figcaption>
+                  <div class="trap-board"><img src="assets/images/traps_anim/deadlock_fail.webp" width="256" height="192" loading="lazy" alt="Nearer box first: one push puts it on the goal below it, in the corridor; the farther box, pushed toward the other goal, is stopped by it."><span class="trap-badge" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 7l10 10M17 7L7 17"/></svg></span></div>
+                  <p class="trap-result">Farther box blocked</p>
+                </figure>
+                <figure class="trap-run is-ok">
+                  <figcaption class="trap-label"><strong>Farther box first</strong></figcaption>
+                  <div class="trap-board"><img src="assets/images/traps_anim/deadlock_ok.webp" width="256" height="192" loading="lazy" alt="Farther box first: it is pushed along the corridor to the far goal, then the nearer box onto its goal. Solved in 18 moves."><span class="trap-badge" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5.5 12.5l4 4 9-9"/></svg></span></div>
+                  <p class="trap-result">Solved in 18 moves</p>
+                </figure>
+              </div>
             </div>
           </article>
-          <article class="card trap-card reveal">
-            <h3>Structural Fork</h3>
-            <p>At a critical step several pushes are legal; only some keep the puzzle solvable. 2, 3 and 4 boxes, 100 puzzles each.</p>
-            <div class="compare" data-compare="fork" data-name="Structural Fork">
-              <div class="compare-item"><img src="assets/images/traps/fork_critical_step.webp" width="256" height="256" loading="lazy" alt="Structural Fork trap, critical step: three boxes beside three goals; several pushes are legal."><span class="compare-cap">Critical step</span></div>
-              <div class="compare-item"><img src="assets/images/traps/fork_wrong_push.webp" width="256" height="256" loading="lazy" alt="After the wrong push: a box is pushed up against the wall, on a row with no goal: deadlock."><span class="compare-cap">Wrong push</span></div>
+          <article class="card trap-demo reveal" aria-labelledby="trap-fork-title">
+            <div class="trap-copy">
+              <h3 id="trap-fork-title">Irreversible push <span class="trap-set">(Structural Fork set)</span></h3>
+              <p>Two pushes are legal here. Up pins a box to the wall in a row with no goal, and no later move brings it back; right keeps the puzzle solvable.</p>
+              <p class="trap-note">Test sets: 2, 3 and 4 boxes, 100 puzzles each.</p>
+            </div>
+            <div class="trap-anim" data-trap="fork" data-title="Irreversible push">
+              <div class="trap-runs">
+                <figure class="trap-run is-fail">
+                  <figcaption class="trap-label"><strong>Push up</strong></figcaption>
+                  <div class="trap-board"><img src="assets/images/traps_anim/fork_fail.webp" width="256" height="160" loading="lazy" alt="Push up: the box is pinned to the top wall, in a row with no goal; nothing can push it back down."><span class="trap-badge" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 7l10 10M17 7L7 17"/></svg></span></div>
+                  <p class="trap-result">Box pinned to the wall</p>
+                </figure>
+                <figure class="trap-run is-ok">
+                  <figcaption class="trap-label"><strong>Push right</strong></figcaption>
+                  <div class="trap-board"><img src="assets/images/traps_anim/fork_ok.webp" width="256" height="160" loading="lazy" alt="Push right: the puzzle stays solvable; all three boxes reach their goals in 13 moves."><span class="trap-badge" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5.5 12.5l4 4 9-9"/></svg></span></div>
+                  <p class="trap-result">Solved in 13 moves</p>
+                </figure>
+              </div>
             </div>
           </article>
-          <article class="card trap-card reveal">
-            <h3>Pacman Route-order</h3>
-            <p>The <span class="key near">nearer food</span> first gets Pacman caught; the <span class="key far">farther food</span> first clears the level. 8×8 grids with 2 to 8 food, plus 10×10 with 8.</p>
-            <div class="compare" data-compare="pacman" data-name="Pacman Route-order">
-              <div class="compare-item"><img src="assets/images/traps/pacman_trap_start.webp" width="256" height="256" loading="lazy" alt="Pacman route-order trap, start: Pacman at the bottom, the ghost to its left."><span class="compare-cap">Start</span></div>
-              <div class="compare-item"><img src="assets/images/traps/pacman_trap_decision.webp" width="256" height="256" loading="lazy" alt="At the decision point: the nearer pellet on the left (brown ring) and the farther pellet at the top right (teal ring); the ghost follows."><span class="compare-cap">Decision</span></div>
+          <article class="card trap-demo reveal" aria-labelledby="trap-pacman-title">
+            <div class="trap-copy">
+              <h3 id="trap-pacman-title">Pacman route order</h3>
+              <p>Eating the nearer food first leaves no escape from the ghost; eating the farther food first clears the level.</p>
+              <p class="trap-note">The episode of the paper’s <a href="assets/images/fig3_forward_vs_linear.webp" target="_blank" rel="noopener">Fig.&nbsp;3</a>. Test grids: 8×8 with 2, 4, 6 or 8 food; 10×10 with 8.</p>
+            </div>
+            <div class="trap-anim" data-trap="pacman" data-title="Pacman route order">
+              <div class="trap-runs">
+                <figure class="trap-run is-fail">
+                  <figcaption class="trap-label"><strong>Nearer food first</strong> <span>Agima-A7B</span></figcaption>
+                  <div class="trap-board"><img src="assets/images/traps_anim/pacman_fail.webp" width="256" height="256" loading="lazy" alt="Nearer food first: Pacman eats the food to its left, heads up for the other one and is caught by the ghost."><span class="trap-badge" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 7l10 10M17 7L7 17"/></svg></span></div>
+                  <p class="trap-result">Caught by the ghost</p>
+                </figure>
+                <figure class="trap-run is-ok">
+                  <figcaption class="trap-label"><strong>Farther food first</strong> <span>Agima-A7B (Forward)</span></figcaption>
+                  <div class="trap-board"><img src="assets/images/traps_anim/pacman_ok.webp" width="256" height="256" loading="lazy" alt="Farther food first: Pacman eats the upper food, comes back down for the food on the left and clears the level."><span class="trap-badge" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5.5 12.5l4 4 9-9"/></svg></span></div>
+                  <p class="trap-result">All food eaten</p>
+                </figure>
+              </div>
             </div>
           </article>
         </div>
-
-        <figure class="card figure-card fig3 reveal" data-fig3>
-          <a class="zoom" href="assets/images/fig3_forward_vs_linear.webp" target="_blank" rel="noopener"><img src="assets/images/fig3_forward_vs_linear.webp" width="2400" height="834" loading="lazy" alt="Paper Figure 3, Pacman route-order trap. (a) Linear rollout: Left, Left, Left eats the left pellet first, then Up, Up, Down, and the ghost catches Pacman. (b) Forward thinking: from the same state it imagines Candidate 1, eat the upper pellet first, and Candidate 2, eat the left pellet first; left-first gets caught by the ghost, up-first survives and eats every pellet, so it commits to Candidate 1."><span class="zoom-hint" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-7 7M10 20H4v-6M4 20l7-7"/></svg><span>Full size</span></span><span class="visually-hidden"> (opens the full-size image)</span></a>
-          <figcaption class="fig-cap"><strong>Fig. 3</strong> The Pacman route-order trap, planned with a linear rollout and with forward thinking.</figcaption>
-        </figure>
 
         <div class="card trap-results reveal">
           <div id="reasoning-results"></div>
@@ -413,6 +413,7 @@
             <div class="card chart-card"><div class="rl-chart" data-chart="fig4b"></div></div>
             <div class="card chart-card"><div class="rl-chart" data-chart="fig4c"></div></div>
           </div>
+          <p class="fig-cap rl-src"><strong>Fig. 4b–c</strong> Redrawn from the paper. <a href="assets/images/fig4_rl_curves.webp" target="_blank" rel="noopener">Paper figure</a></p>
         </div>
 
         <div class="analysis-row reveal">
@@ -429,6 +430,7 @@
             <div class="card chart-card"><div class="rl-chart" data-chart="fig6a"></div></div>
             <div class="card chart-card"><div class="rl-chart" data-chart="fig6b"></div></div>
           </div>
+          <p class="fig-cap rl-src"><strong>Fig. 6a–b</strong> Redrawn from the paper. <a href="assets/images/fig6_adaptive_reasoning.webp" target="_blank" rel="noopener">Paper figure</a></p>
         </div>
 
         <div class="analysis-row reveal">
@@ -441,6 +443,7 @@
             <div class="card chart-card"><div class="rl-chart" data-chart="fig6c"></div></div>
             <div class="card chart-card"><div class="rl-chart" data-chart="fig6d"></div></div>
           </div>
+          <p class="fig-cap rl-src"><strong>Fig. 6c–d</strong> Redrawn from the paper. <a href="assets/images/fig6_adaptive_reasoning.webp" target="_blank" rel="noopener">Paper figure</a></p>
           <figure class="clip-figure">
             <div class="clip">
               <video class="clip-video" autoplay muted loop playsinline preload="metadata" disablepictureinpicture poster="assets/video/clip_fork.webp" width="1280" height="720" data-name="fork illustration" aria-label="Illustration, not a recorded episode. Before RL, the model has no branch at this fork, takes the risky push and deadlocks. After RL, it branches at the fork, imagines the risky push failing, takes the safe way and solves the puzzle.">

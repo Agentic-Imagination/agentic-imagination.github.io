@@ -1,0 +1,129 @@
+/* Agima project page: the planning-trap animations in #traps (assets/js/traps.js).
+   Real boards: a solid ink frame; the failing run ends red with a cross and a short shake, the succeeding run
+   green with a check. Without JavaScript the last frames show as plain images, with their results. */
+
+.trap-demos { display: grid; gap: clamp(16px, 2.4vw, 24px); }
+.trap-demo {
+  display: grid; grid-template-columns: minmax(0, 16.5rem) minmax(0, 1fr); align-items: center;
+  gap: 18px clamp(24px, 4vw, 52px); padding: clamp(18px, 2.6vw, 30px);
+}
+.trap-copy h3 { margin: 0 0 8px; font-family: var(--serif); font-size: 1.75rem; font-weight: 600; line-height: 1.1; }
+.trap-set { display: block; margin-top: 3px; color: var(--text-2); font-family: var(--sans); font-size: .78rem; font-weight: 500; letter-spacing: .01em; }
+.trap-copy p { margin: 0; color: var(--text-2); font-size: .92rem; line-height: 1.55; }
+.trap-copy .trap-note { margin-top: 10px; font-size: .8rem; line-height: 1.5; }
+.trap-note a { color: var(--ink); font-weight: 600; text-decoration-color: var(--line-strong); text-underline-offset: 2px; }
+.trap-note a:hover { text-decoration-color: currentColor; }
+
+.trap-anim { justify-self: center; width: 100%; min-width: 0; max-width: 660px; }
+.trap-runs {
+  position: relative; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: clamp(14px, 3vw, 34px);
+  border-radius: 12px; -webkit-tap-highlight-color: transparent;
+}
+.trap-anim.is-live .trap-runs { cursor: pointer; }
+.trap-runs:focus-visible { outline: 2px solid var(--blue); outline-offset: 6px; }
+.trap-run { min-width: 0; margin: 0; }
+.trap-label { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; margin: 0 0 9px; font-size: .86rem; font-weight: 600; line-height: 1.3; }
+.trap-run.is-fail .trap-label strong { color: var(--red-ink); }
+.trap-run.is-ok .trap-label strong { color: var(--green-ink); }
+.trap-label span { color: var(--text-2); font-size: .76rem; font-weight: 500; }
+.trap-board {
+  position: relative; padding: 3px;
+  border: 2px solid var(--ink); border-radius: 11px; background: #fff;
+  transition: border-color 220ms ease, box-shadow 220ms ease;
+}
+.trap-board img, .trap-board canvas {
+  display: block; width: 100%; height: auto; border-radius: 7px; background: #000;
+  image-rendering: pixelated;
+}
+.trap-badge {
+  position: absolute; top: -12px; right: -12px; z-index: 2; display: grid; place-items: center;
+  width: 26px; height: 26px; border-radius: 50%; color: #fff; box-shadow: 0 0 0 2.5px #fff;
+  opacity: 0; transform: scale(.5); transition: opacity 200ms ease, transform 260ms var(--ease);
+}
+.trap-badge svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.trap-run.is-fail .trap-badge { background: var(--red); }
+.trap-run.is-ok .trap-badge { background: var(--green); }
+.trap-result { margin: 9px 0 0; font-size: .84rem; font-weight: 600; line-height: 1.35; opacity: 0; transition: opacity 240ms ease; }
+.trap-run.is-fail .trap-result { color: var(--red-ink); }
+.trap-run.is-ok .trap-result { color: var(--green-ink); }
+/* the end of a run (and, without JavaScript, the still last frames) */
+.trap-run.is-done .trap-badge, .trap-anim:not(.is-live) .trap-badge { opacity: 1; transform: none; }
+.trap-run.is-done .trap-result, .trap-anim:not(.is-live) .trap-result { opacity: 1; }
+.trap-run.is-fail.is-done .trap-board, .trap-anim:not(.is-live) .is-fail .trap-board { border-color: var(--red); box-shadow: 0 0 0 4px var(--red-50); }
+.trap-run.is-ok.is-done .trap-board, .trap-anim:not(.is-live) .is-ok .trap-board { border-color: var(--green); box-shadow: 0 0 0 4px var(--green-50); }
+@media (prefers-reduced-motion: no-preference) {
+  .trap-run.is-shake .trap-board { animation: trap-shake 460ms cubic-bezier(.36, .07, .19, .97); }
+}
+@keyframes trap-shake {
+  15% { transform: translateX(-7px); } 30% { transform: translateX(6px); } 45% { transform: translateX(-5px); }
+  60% { transform: translateX(4px); } 75% { transform: translateX(-2px); } 100% { transform: none; }
+}
+/* the pause / play glyph after a click or Space on the boards */
+.trap-flash {
+  position: absolute; left: 50%; top: 50%; z-index: 3; display: grid; place-items: center;
+  width: 50px; height: 50px; margin: -25px 0 0 -25px; border-radius: 50%;
+  color: #fff; background: rgba(22, 22, 24, .72); opacity: 0; pointer-events: none;
+}
+.trap-flash svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.trap-flash .ico-play { fill: currentColor; stroke-width: 1.6; }
+.trap-flash.is-on { animation: trap-flash 650ms ease-out; }
+@keyframes trap-flash { 0% { opacity: 0; transform: scale(.7); } 25% { opacity: 1; transform: none; } 100% { opacity: 0; transform: scale(1.12); } }
+
+/* controls: play / pause, previous, scrubber, next, move counter */
+.trap-bar { display: flex; align-items: center; gap: 8px; margin-top: 16px; }
+.trap-play {
+  flex: none; display: grid; place-items: center; width: 36px; height: 36px; padding: 0;
+  border: 0; border-radius: 50%; color: #fff; background: var(--ink); cursor: pointer; transition: background 160ms ease;
+}
+.trap-play:hover { background: var(--blue-ink); }
+.trap-play .ico { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.trap-play .ico-play { fill: currentColor; stroke-width: 1.6; }
+.trap-play .ico-play, .trap-play.is-paused .ico-pause { display: none; }
+.trap-play.is-paused .ico-play { display: block; }
+.trap-btn {
+  flex: none; display: grid; place-items: center; width: 32px; height: 32px; padding: 0;
+  border: 1px solid var(--line-strong); border-radius: 50%; color: var(--ink); background: var(--card); cursor: pointer;
+  transition: border-color 160ms ease;
+}
+.trap-btn:hover:not([aria-disabled="true"]) { border-color: var(--ink); }
+.trap-btn[aria-disabled="true"] { opacity: .38; cursor: default; }
+.trap-btn svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.trap-count { flex: none; min-width: 6.6em; color: var(--text-2); font-size: .8rem; font-variant-numeric: tabular-nums; text-align: right; }
+.trap-range {
+  --p: 0%;
+  flex: 1; min-width: 0; height: 28px; margin: 0 2px; background: transparent; cursor: pointer;
+  -webkit-appearance: none; appearance: none; touch-action: pan-y;
+}
+.trap-range:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; border-radius: 4px; }
+.trap-range::-webkit-slider-runnable-track {
+  height: 4px; border-radius: 2px; background: linear-gradient(90deg, var(--ink) var(--p), var(--line-strong) var(--p));
+}
+.trap-range::-moz-range-track { height: 4px; border-radius: 2px; background: var(--line-strong); }
+.trap-range::-moz-range-progress { height: 4px; border-radius: 2px; background: var(--ink); }
+.trap-range::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none; width: 16px; height: 16px; margin-top: -6px;
+  border: 2px solid #fff; border-radius: 50%; background: var(--ink); box-shadow: 0 1px 4px rgba(22, 22, 24, .4);
+}
+.trap-range::-moz-range-thumb {
+  width: 12px; height: 12px; border: 2px solid #fff; border-radius: 50%; background: var(--ink); box-shadow: 0 1px 4px rgba(22, 22, 24, .4);
+}
+
+@media (max-width: 900px) {
+  .trap-demo { grid-template-columns: minmax(0, 1fr); }
+  .trap-anim { max-width: 560px; justify-self: start; }
+}
+@media (max-width: 480px) {
+  .trap-demo { padding: 18px 16px; }
+  .trap-copy h3 { font-size: 1.55rem; }
+  .trap-runs { gap: 14px; }
+  .trap-label { font-size: .8rem; margin-bottom: 7px; }
+  .trap-label span { font-size: .72rem; }
+  .trap-result { font-size: .78rem; }
+  .trap-badge { top: -10px; right: -10px; width: 22px; height: 22px; }
+  .trap-badge svg { width: 14px; height: 14px; }
+  .trap-bar { gap: 6px; }
+  .trap-count { min-width: 0; font-size: .74rem; }
+}
+@media print {
+  .trap-bar, .trap-flash { display: none !important; }
+}
