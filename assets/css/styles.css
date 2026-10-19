@@ -188,17 +188,15 @@ p { text-wrap: pretty; }
 .kw { position: relative; display: inline-block; white-space: nowrap; }
 .kw-agentic { color: var(--green); }
 .kw-imagination { color: var(--blue); font-style: italic; font-weight: 600; padding-right: .04em; }
-.kw::after {
-  content: ""; position: absolute; left: .04em; right: .06em; bottom: .02em; height: .055em; min-height: 3px;
-  border-radius: 2px; opacity: .55;
-}
+.kw::after { content: none; }
 .kw-agentic::after { background: var(--green); }
 .kw-imagination::after {
   background: repeating-linear-gradient(90deg, var(--blue) 0 .2em, transparent .2em .32em);
 }
 
-/* "imagine, then act" rule: dashed blue, then solid green */
-.rule-ia {
+/* "imagine, then act" rule under chapter headings: retired (too busy), kept in the markup */
+.rule-ia { display: none !important; }
+.rule-ia-retired {
   display: block; width: 92px; height: 4px; margin: 18px 0 0;
   background:
     linear-gradient(90deg, transparent 0 46px, var(--green) 46px 92px),
@@ -251,7 +249,7 @@ p { text-wrap: pretty; }
 .pill[data-todo]:hover { transform: none; box-shadow: none; background: rgba(255, 255, 255, .8); }
 
 /* decorative imagined frames floating behind the title */
-.hero-deco { position: absolute; inset: 0; pointer-events: none; }
+.hero-deco { display: none; }   /* retired: the dashed squares around the title were too busy */
 .deco { position: absolute; display: block; border-radius: 9px; }
 .deco-1 { top: 13%; left: 7%; width: 64px; height: 64px; border: 2px dashed rgba(38, 96, 224, .38); transform: rotate(-8deg); }
 .deco-2 { top: 30%; left: 13%; width: 30px; height: 30px; border: 2px dashed rgba(38, 96, 224, .3); transform: rotate(10deg); }
@@ -780,11 +778,11 @@ p { text-wrap: pretty; }
 .f5-block + .f5-block { margin-top: 12px; }
 .f5-tag { margin: 0 0 6px; color: var(--text-2); font-size: .74rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
 .f5-tag strong { color: var(--ink); }
-.f5-intro { margin: 0 0 4px; font-size: .9rem; }
-.f5-row { display: grid; grid-template-columns: minmax(0, 14rem) minmax(0, 1fr) minmax(0, 12.5rem); align-items: center; gap: 10px 20px; padding: 10px 0; }
+.f5-intro { margin: 0 0 4px; font-size: 1rem; }
+.f5-row { display: grid; grid-template-columns: minmax(0, 17rem) auto minmax(0, 1fr); align-items: center; gap: 10px 24px; padding: 12px 0; }
 .f5-row + .f5-row { border-top: 1px dashed var(--line); }
-.f5-lead { margin: 0; font-size: .88rem; line-height: 1.45; }
-.f5-seq { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; max-width: 500px; margin: 0; padding: 0; list-style: none; }
+.f5-lead { margin: 0; font-size: 1rem; line-height: 1.5; }
+.f5-seq { display: grid; grid-template-columns: repeat(4, 64px); gap: 8px; margin: 0; padding: 0; list-style: none; }
 .f5-step { display: flex; flex-direction: column; align-items: center; gap: 5px; min-width: 0; }
 .f5-act { color: var(--text-2); font-size: .76rem; font-weight: 600; white-space: nowrap; }
 .f5-board {
@@ -807,7 +805,7 @@ p { text-wrap: pretty; }
 .f5-step:not(.is-on) .f5-board { outline-color: var(--line-strong); }
 .f5-step.is-on .f5-act, .f5-step.is-on .f5-board img, .f5-step.is-on .f5-badge, .f5-row.is-done .f5-out { opacity: 1; }
 .f5-step.is-now .f5-board { box-shadow: 0 0 0 6px rgba(38, 96, 224, .16); }
-.f5-out p { margin: 0; font-size: .86rem; line-height: 1.45; }
+.f5-out p { margin: 0; font-size: .98rem; line-height: 1.5; }
 .f5-out .f5-end { margin-top: 3px; }
 .f5-row.is-ok .f5-result { color: var(--green-ink); }
 .f5-row.is-bad .f5-result { color: var(--red-ink); }
@@ -972,7 +970,7 @@ p { text-wrap: pretty; }
 }
 @media (max-width: 480px) {
   /* Fig. 5: two boards per row, so each stays ~110 px wide */
-  .f5-seq { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 16px; }
+  .f5-seq { grid-template-columns: repeat(4, minmax(0, 60px)); gap: 8px; }
   .sound-toggle { gap: 5px; padding-left: 9px; }
   .sound-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; }
 }

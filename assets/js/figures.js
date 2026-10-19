@@ -160,7 +160,7 @@
     var live = el("p", {class: "visually-hidden", "aria-live": "polite"});
     var head = el("div", {class: "f5-head"}, [el("div", {class: "f5-steps", role: "group", "aria-label": "Plan steps"}, [bPrev, counter, bNext, bPlay]), live]);
     var stack = el("div", {class: "f5-stack", tabindex: "0", role: "region",
-      "aria-label": "Figure 5, step by step. Left and right arrow keys step through the plans; Enter enlarges the boards."}, [views.after, views.before]);
+      "aria-label": "Figure 5, step by step. Left and right arrow keys step through the plans; Enter enlarges the boards."}, [views.before, views.after]);
     var legend = el("p", {class: "f5-legend"}, [
       "Kept in the unified format: ",
       el("span", {class: "t-p1", text: "Format 1"}), " step-by-step rollout, ",
@@ -174,8 +174,8 @@
     var full = root.querySelector(".fig5-full");
     if (full) full.hidden = false;
 
-    // Both views are always shown, After RL (the new format) first; one clock reveals every lane of both at once.
-    var lanes = units.after.concat(units.before), step = 0, timer = null, touched = false;
+    // Both views are always shown, Before RL then After RL (the new format); one clock reveals every lane of both.
+    var lanes = units.before.concat(units.after), step = 0, timer = null, touched = false;
     // the clock runs to the longest lane; a shorter lane stays complete once it has finished
     function total() { return Math.max.apply(null, lanes.map(function (l) { return l.length; })); }
     function render(announce) {
