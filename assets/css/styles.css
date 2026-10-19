@@ -160,11 +160,9 @@ p { text-wrap: pretty; }
   position: relative;
   padding: clamp(48px, 8vw, 96px) 0 clamp(56px, 8vw, 96px);
   overflow: hidden;
-  background:
-    radial-gradient(ellipse 75% 60% at 50% -5%, rgba(38, 96, 224, .075), rgba(38, 96, 224, 0) 75%),
-    radial-gradient(ellipse 55% 35% at 50% 80%, rgba(38, 96, 224, .06), rgba(38, 96, 224, 0) 75%),
-    var(--paper);
+  background: var(--paper);
 }
+.title-accent { color: var(--blue); }   /* the one accent in the title */
 .hero-inner {
   position: relative; z-index: 1;
   max-width: calc(1000px + 2 * var(--gutter)); margin: 0 auto; padding-inline: var(--gutter);
@@ -237,7 +235,7 @@ p { text-wrap: pretty; }
 /* links that are not live yet: drawn dashed, like an imagined frame */
 .pill[data-todo] {
   color: var(--ink); background: rgba(255, 255, 255, .55);
-  border-style: dashed; border-color: var(--line-strong);
+  border-color: var(--line-strong);
   cursor: default;
 }
 .pill[data-todo]::after {
@@ -266,8 +264,7 @@ p { text-wrap: pretty; }
 }
 .teaser-glow {
   position: absolute; inset: 8% 12% -4%; z-index: -1;
-  background: radial-gradient(closest-side, rgba(38, 96, 224, .22), transparent);
-  filter: blur(30px);
+  display: none;   /* retired: plain page behind the teaser */
 }
 .teaser-frame {
   position: relative;

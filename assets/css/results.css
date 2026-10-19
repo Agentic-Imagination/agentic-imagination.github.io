@@ -5,7 +5,7 @@
 /* a faint underline at rest, so the names read as links on touch screens too (no hover there) */
 .author-link {
   color: inherit;
-  text-decoration: underline 1px rgba(22, 22, 24, .28);
+  text-decoration: underline 1px transparent;   /* underline only on hover */
   text-underline-offset: .22em;
   transition: text-decoration-color 180ms ease, color 180ms ease;
 }
