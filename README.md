@@ -1,7 +1,7 @@
 # Agima project website
 
 Static project page for *Training an Imaginative Agent* (Agima), served by GitHub Pages from the
-repository root (`main` branch, `/`) at https://agentic-imagination.github.io/.
+repository root (`main` branch, `/`) at https://agima.net/ (custom domain; CNAME in the repo root).
 Plain HTML, CSS and JavaScript: no framework, no build step.
 
 ## Preview locally
@@ -136,7 +136,7 @@ and respect `prefers-reduced-motion` (nothing moves by itself; plans show comple
   click. Remove `data-todo` once its link is real.
 - **BibTeX**: fill in the venue and year (`TODO(bibtex)` in `index.html`).
 - **Link previews**: `og:*`, `twitter:*` and `canonical` use absolute URLs under
-  `https://agentic-imagination.github.io/`. Update them if the site moves to another address.
+  `https://agima.net/`. Update them if the site moves to another address.
   If the teaser is re-rendered under a new name, update the `<video>` source, the poster and those meta tags.
 
 ## Before each push
