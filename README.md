@@ -82,7 +82,11 @@ server is closer to GitHub Pages. All asset paths are relative, so the same file
 - `tools/figures/make_figure_assets.py`: rebuilds `assets/gifs/rollout_split/` and `assets/images/fig5/` (Pillow; it
   reads the original rollout GIFs from git, commit `828b511`, or from `--gifs DIR`), prints the frame-kind table
   that `main.js` keeps as `ROLLOUT_KINDS`, and exits with an error if that table or `stepMs()` in `main.js` no longer
-  matches the GIFs. Run it after replacing a rollout GIF.
+  matches the GIFs. Run it after replacing a rollout GIF. Maze2D at K = 3, 5, 10 and ∞ comes instead from real
+  episodes of the Table 1 evals, listed with their archive, seed and selection in `tools/figures/maze2d_rollouts.json`;
+  `--maze2d-archives DIR` (the folder with `maze2d_k<K>_cot.tar.gz`) rebuilds those four sprites from the archives,
+  and checks `ROLLOUT_NO_AGENT` in `main.js` (the steps where Agima's frame has lost the blue agent dot); adding
+  `--rank` instead repeats the choice of the four episodes over every episode of each run.
 - `tools/figures/make_trap_assets.py`: rebuilds `assets/images/traps_anim/` with the teaser engine's Sokoban levels,
   tiles and solver (`tools/teaser/make_teaser.py`) and the Pacman episode in `tools/teaser/inputs/`. It checks every
   claim the animations make with the solver (deadlock, which cells a box can still reach, the solutions) and exits
@@ -109,7 +113,9 @@ and respect `prefers-reduced-motion` (nothing moves by itself; plans show comple
   selected environment and K on two canvases with the source GIFs' frame durations (`FRAME_MS`, `stepMs`), only while
   on screen; the track below shows every frame (click, drag or arrow keys to step; on touch, a vertical swipe still
   scrolls). Selecting a K or an environment in the table, the chart, or the viewer's own buttons updates all of them.
-  The sprite loads only when the viewer nears the screen.
+  The sprite loads only when the viewer nears the screen. On the Maze2D frames listed in `ROLLOUT_NO_AGENT` the caption
+  says that the agent is missing from Agima's frame (no successful eval episode keeps it in every frame), and a paused
+  viewer never stops on one.
 - **Planning traps** (`[data-trap]` in `traps.js`, data from `make_trap_assets.py`): three animations, each a failing and a
   succeeding run from the same start, side by side on two canvases and in sync. *Deadlock* (a 2-box level from Agima's Sokoban generator, seed 2797): the nearer box first takes the only goal the farther box can reach; the farther box first solves it. *Irreversible push* (the Structural
   Fork level): at the critical step, up pins a box to the wall in a row with no goal (the cells it can still reach are
@@ -137,4 +143,4 @@ and respect `prefers-reduced-motion` (nothing moves by itself; plans show comple
 
 Run `python tools/stamp_assets.py`: it stamps every CSS/JS reference in `index.html` with a hash of the
 file (`?v=...`), so browsers pick up the new version right away instead of a cached one (Pages caches for
-10 minutes).
+10 minutes). It first writes the hash of each rollout sprite into `SPRITE_V` in `main.js`, which loads them.

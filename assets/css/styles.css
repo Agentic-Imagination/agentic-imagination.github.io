@@ -39,7 +39,9 @@
   --sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
 
-  --max: 1160px;
+  /* one measure for text and figures: every figure sits in this column (the teaser too), so the page keeps
+     wide margins on large screens and the prose stays the visual lead */
+  --max: 960px;
   --narrow: 860px;
   --gutter: clamp(16px, 4vw, 40px);
   --radius: 16px;
@@ -259,7 +261,7 @@ p { text-wrap: pretty; }
 /* teaser video */
 .teaser {
   position: relative; z-index: 1;
-  width: 100%; max-width: calc(1120px + 2 * var(--gutter));
+  width: 100%; max-width: calc(var(--max) + 2 * var(--gutter));
   margin: clamp(40px, 6vw, 64px) auto 0; padding-inline: var(--gutter);
 }
 .teaser-glow {
@@ -446,7 +448,7 @@ p { text-wrap: pretty; }
 .clip-toggle .ico-play, .clip-toggle.is-paused .ico-pause { display: none; }
 .clip-toggle.is-paused .ico-play { display: block; }
 @media (hover: none) { .clip-toggle { opacity: .72; } }
-.clip-caption { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin: 12px 2px 0; color: var(--text-2); font-size: .86rem; }
+.clip-caption { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin: 12px 2px 0; color: var(--text-2); font-size: .86rem; text-wrap: pretty; }
 .clip-tag {
   padding: 1px 9px; border-radius: 999px;
   color: var(--amber-ink); background: var(--amber-50);
@@ -469,11 +471,11 @@ p { text-wrap: pretty; }
 .team-diagram.is-active .team-highlight { opacity: 1; }
 .team-diagram.is-active .team-highlight.is-hidden { opacity: 0; }
 
-.format-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+.format-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
 .format-card {
   --c: var(--blue);
   position: relative;
-  padding: 22px 22px 18px;
+  padding: 18px 18px 16px;
   background: var(--card);
   border: 1px solid var(--line); border-radius: var(--radius);
   box-shadow: var(--shadow);
@@ -493,7 +495,7 @@ p { text-wrap: pretty; }
 .format-card h3 {
   display: flex; align-items: center; gap: 10px;
   margin: 0;
-  font-family: var(--serif); font-size: 1.6rem; font-weight: 600; line-height: 1.1;
+  font-family: var(--serif); font-size: 1.42rem; font-weight: 600; line-height: 1.1;
 }
 .format-dot { width: 12px; height: 12px; flex: none; border-radius: 3px; border: 2px dashed var(--c); }
 .format-card.is-active .format-dot { background: var(--c); border-style: solid; }
@@ -509,8 +511,10 @@ p { text-wrap: pretty; }
 .format-diagram .edge { fill: none; stroke: var(--muted); stroke-width: 1.3; }
 .format-diagram .edge.bad { stroke: var(--red); }
 .format-diagram .edge.good { stroke: var(--green); }
-.format-diagram text { font-family: var(--serif); font-size: 13px; font-weight: 600; fill: var(--ink); }
-.format-diagram .glyph { font-family: var(--sans); font-size: 11.5px; font-weight: 700; }
+/* sized for the ~270 px a card gives the 320-unit viewBox (about 0.85 px per unit) */
+.format-diagram text { font-family: var(--serif); font-size: 18px; font-weight: 600; fill: var(--ink); }
+.format-diagram .plan { font-size: 13px; }
+.format-diagram .glyph { font-family: var(--sans); font-size: 12.5px; font-weight: 700; }
 .format-diagram .glyph.bad { fill: var(--red-ink); }
 .format-diagram .glyph.good { fill: var(--green-ink); }
 .format-diagram .arrow-head { fill: var(--muted); }
@@ -528,7 +532,7 @@ p { text-wrap: pretty; }
 .env-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
 .env-card { padding: 22px 22px 20px; transition: transform 260ms var(--ease), box-shadow 260ms var(--ease); }
 .env-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-lift); }
-.env-card h3 { margin: 0 0 14px; font-family: var(--serif); font-size: 1.75rem; font-weight: 600; line-height: 1.1; }
+.env-card h3 { margin: 0 0 12px; font-family: var(--serif); font-size: 1.55rem; font-weight: 600; line-height: 1.1; }
 .env-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
 .env-pair img { width: 100%; border-radius: 8px; border: 1px solid var(--line); }
 .env-pair figcaption { margin-top: 8px; color: var(--ink); font-size: .84rem; font-weight: 500; line-height: 1.4; }
@@ -537,7 +541,7 @@ p { text-wrap: pretty; }
 .split-test { color: var(--blue-ink); }
 
 /* ============================== 03 results ============================== */
-.results-block { padding: clamp(18px, 3vw, 30px); }
+.results-block { padding: clamp(18px, 2.6vw, 26px); }
 .results-block + .results-block { margin-top: 24px; }
 
 /* chart chrome (rendered by main.js) */
@@ -666,7 +670,7 @@ p { text-wrap: pretty; }
 .kv-head h4 { margin: 0; font-family: var(--serif); font-size: 1.55rem; font-weight: 600; line-height: 1.1; }
 .kv-sub { margin: 4px 0 0; color: var(--text-2); font-size: .86rem; }
 .kv-segs { display: flex; flex-wrap: wrap; gap: 8px; }
-.kv-stage { display: grid; grid-template-columns: repeat(2, minmax(0, 300px)); justify-content: center; gap: clamp(14px, 5vw, 56px); }
+.kv-stage { display: grid; grid-template-columns: repeat(2, minmax(0, 236px)); justify-content: center; gap: clamp(14px, 4vw, 44px); }
 .kv-panel { min-width: 0; }
 .kv-panel figcaption { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; font-size: .84rem; font-weight: 600; }
 .kv-tag { padding: 2px 10px; border-radius: 999px; color: #fff; background: var(--ink); font-size: .74rem; font-weight: 600; line-height: 1.5; transition: background 200ms ease; }
@@ -683,7 +687,7 @@ p { text-wrap: pretty; }
   .kv-stage.is-loading .kv-canvas { animation: kv-wait 900ms ease-in-out infinite alternate; }
 }
 @keyframes kv-wait { from { opacity: .45; } to { opacity: 1; } }
-.kv-bar { display: flex; align-items: center; gap: 12px; max-width: 656px; margin: 16px auto 0; }
+.kv-bar { display: flex; align-items: center; gap: 12px; max-width: 516px; margin: 16px auto 0; }
 .kv-play {
   flex: none; display: grid; place-items: center; width: 36px; height: 36px; padding: 0;
   border: 0; border-radius: 50%; color: #fff; background: var(--ink); cursor: pointer;
@@ -701,7 +705,7 @@ p { text-wrap: pretty; }
 .kv-cell.is-real { background: var(--ink); }
 .kv-cell.is-now { height: 26px; }
 .kv-cell.is-imag.is-now { background: var(--blue); }
-.kv-cap { max-width: 656px; margin: 8px auto 0; font-size: .86rem; text-align: center; font-variant-numeric: lining-nums tabular-nums; }
+.kv-cap { max-width: 516px; margin: 8px auto 0; font-size: .86rem; text-align: center; font-variant-numeric: lining-nums tabular-nums; }
 .kv-legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 18px; margin: 10px 0 0; color: var(--text-2); font-size: .8rem; }
 .kv-legend span { display: inline-flex; align-items: center; gap: 7px; }
 .kv-legend .kv-kline { display: block; flex-basis: 100%; text-align: center; }
@@ -732,10 +736,17 @@ p { text-wrap: pretty; }
 .analysis-copy h3 { margin: 0 0 6px; font-family: var(--serif); font-size: 1.9rem; font-weight: 600; line-height: 1.1; }
 .analysis-copy p { max-width: 37rem; margin: 0; color: var(--text-2); }
 .analysis-row > .clip-figure, .analysis-row > .rl-grid { margin-top: 20px; }
+/* the fork illustration is a supporting clip: narrower than the measure, on the column's left edge like the rest */
+.analysis-row > .clip-figure { max-width: 720px; }
+.analysis-row > .clip-figure:not(:first-child) { margin-top: clamp(28px, 4vw, 40px); }
 .analysis-row > .analysis-copy + * { margin-top: 0; }
 /* animated charts (drawn by rl-charts.js into .rl-chart) */
 .rl-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
-.chart-card { min-width: 0; padding: clamp(14px, 2vw, 22px); }
+.chart-card { min-width: 0; padding: clamp(14px, 1.6vw, 20px); }
+/* a five-item legend (three models, then the 3- and 4-box line styles) breaks between the two groups,
+   instead of leaving "4 boxes" alone on a second line */
+.chart-card .rlc-legend:has(> li:nth-child(5)) > li:nth-child(n+4) { order: 2; }
+.chart-card .rlc-legend:has(> li:nth-child(5))::after { content: ""; flex-basis: 100%; order: 1; margin-bottom: -4px; }
 .rl-chart { min-width: 0; }
 .rl-chart:empty { min-height: 220px; }
 /* no JavaScript: the paper's figures stand in for the charts */
@@ -880,12 +891,11 @@ p { text-wrap: pretty; }
 }
 
 /* ============================== responsive ============================== */
-@media (max-width: 1120px) {
-  .data-table.kt th, .data-table.kt td { padding-inline: 4px; }
-  .data-table.kt th:first-child, .data-table.kt td:first-child { padding-left: 10px; }
-  .kt tbody th { white-space: normal; line-height: 1.3; }
-  .kt td { min-width: 2.1em; }
-}
+/* the K table in the 960 px measure: compact columns at every width (it used to need them only below 1120 px) */
+.data-table.kt th, .data-table.kt td { padding-inline: 4px; }
+.data-table.kt th:first-child, .data-table.kt td:first-child { padding-left: 10px; }
+.kt tbody th { white-space: normal; line-height: 1.3; }
+.kt td { min-width: 2.1em; }
 @media (max-width: 1040px) {
   .kc-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }

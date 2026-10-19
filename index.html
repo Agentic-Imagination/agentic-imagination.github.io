@@ -34,11 +34,11 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500;1,600&amp;family=Inter:wght@400;500;600;700&amp;display=swap">
-  <link rel="stylesheet" href="assets/css/styles.css?v=c9b62bbd">
-  <link rel="stylesheet" href="assets/css/results.css?v=d84d0b56">
-  <link rel="stylesheet" href="assets/css/traps.css?v=2160a8a0">
+  <link rel="stylesheet" href="assets/css/styles.css?v=4c8c5462">
+  <link rel="stylesheet" href="assets/css/results.css?v=fcb3c76c">
+  <link rel="stylesheet" href="assets/css/traps.css?v=6e57f588">
   <link rel="stylesheet" href="assets/css/lightbox.css?v=fe001f14">
-  <script defer src="assets/js/main.js?v=4f7f5259"></script>
+  <script defer src="assets/js/main.js?v=cd587b8e"></script>
   <script src="assets/js/rl-charts.js?v=d558725a" defer></script>
   <script src="assets/js/figures.js?v=56af492d" defer></script>
   <script src="assets/js/traps.js?v=888a3572" defer></script>
@@ -170,7 +170,7 @@
             <h3><span class="format-dot" aria-hidden="true"></span>Linear rollout</h3>
             <svg class="format-diagram" viewBox="0 0 320 96" role="img" aria-label="Linear rollout: real frame, then alternating actions and imagined frames.">
               <defs><marker id="ah-lin" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path class="arrow-head" d="M0,0 L7,3.5 L0,7 Z"/></marker></defs>
-              <rect class="frame" x="4" y="30" width="36" height="36" rx="3"/><text x="22" y="52" text-anchor="middle">o<tspan font-size="9" dy="3">t</tspan></text>
+              <rect class="frame" x="4" y="30" width="36" height="36" rx="3"/><text x="22" y="52" text-anchor="middle">o<tspan font-size="12" dy="4">t</tspan></text>
               <path class="edge" d="M41 48 H56" marker-end="url(#ah-lin)"/>
               <circle class="act" cx="72" cy="48" r="15"/><text x="72" y="52" text-anchor="middle">â</text>
               <path class="edge" d="M88 48 H101" marker-end="url(#ah-lin)"/>
@@ -189,7 +189,7 @@
             <h3><span class="format-dot" aria-hidden="true"></span>Counterfactual branching</h3>
             <svg class="format-diagram" viewBox="0 0 320 96" role="img" aria-label="Counterfactual branching: an alternative action leads to a rejected frame; the main plan continues.">
               <defs><marker id="ah-br" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path class="arrow-head" d="M0,0 L7,3.5 L0,7 Z"/></marker></defs>
-              <rect class="frame" x="4" y="30" width="36" height="36" rx="3"/><text x="22" y="52" text-anchor="middle">o<tspan font-size="9" dy="3">t</tspan></text>
+              <rect class="frame" x="4" y="30" width="36" height="36" rx="3"/><text x="22" y="52" text-anchor="middle">o<tspan font-size="12" dy="4">t</tspan></text>
               <path class="edge bad" d="M41 40 C52 22 58 20 66 20" marker-end="url(#ah-br)"/>
               <circle class="act bad" cx="82" cy="20" r="14"/><text x="82" y="24" text-anchor="middle">â′</text>
               <path class="edge bad" d="M97 20 H110" marker-end="url(#ah-br)"/>
@@ -212,8 +212,8 @@
             <h3><span class="format-dot" aria-hidden="true"></span>Forward thinking</h3>
             <svg class="format-diagram" viewBox="0 0 320 96" role="img" aria-label="Forward thinking: two candidate plans imagined from the same frame; one fails and one succeeds.">
               <defs><marker id="ah-fw" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path class="arrow-head" d="M0,0 L7,3.5 L0,7 Z"/></marker></defs>
-              <rect class="frame" x="4" y="30" width="36" height="36" rx="3"/><text x="22" y="52" text-anchor="middle">o<tspan font-size="9" dy="3">t</tspan></text>
-              <text x="54" y="16" font-size="10">A</text><text x="54" y="92" font-size="10">B</text>
+              <rect class="frame" x="4" y="30" width="36" height="36" rx="3"/><text x="22" y="52" text-anchor="middle">o<tspan font-size="12" dy="4">t</tspan></text>
+              <text class="plan" x="54" y="16">A</text><text class="plan" x="54" y="92">B</text>
               <path class="edge" d="M41 40 C52 22 58 20 66 20" marker-end="url(#ah-fw)"/>
               <circle class="act" cx="82" cy="20" r="14"/><text x="82" y="24" text-anchor="middle">â</text>
               <path class="edge" d="M97 20 H110" marker-end="url(#ah-fw)"/>
@@ -443,7 +443,7 @@
                 <source src="assets/video/clip_fork.mp4" type="video/mp4">
               </video>
             </div>
-            <figcaption class="clip-caption"><span class="clip-tag">Illustration</span>Not a recorded episode. Both models branch; after RL, more branches land on critical steps like this fork (63% → 73%, 3 boxes).</figcaption>
+            <figcaption class="clip-caption"><span class="clip-tag">Illustration</span>Not a recorded episode. Both models branch; after RL, more branches land on critical steps like this fork (63%&nbsp;→&nbsp;73%, 3&nbsp;boxes).</figcaption>
           </figure>
         </div>
       </div>

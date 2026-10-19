@@ -138,8 +138,9 @@
   var KS = ["1", "3", "5", "10", "inf"];
   var ENV_FILE = ["pacman", "maze2d", "sokoban", "pusht"];   // same order as ENVS
   // One letter per frame of assets/gifs/rollout_split/<env>_k<K>.webp: r = real observation, i = imagined frame
-  // (read off the left panel's border in the original GIFs). tools/figures/make_figure_assets.py prints this
-  // table and checks it, and stepMs below, against this file.
+  // (read off the left panel's border in the original GIFs; Maze2D at K = 3, 5, 10, inf from the eval episodes in
+  // tools/figures/maze2d_rollouts.json). tools/figures/make_figure_assets.py prints this table and checks it,
+  // and stepMs below, against this file.
   var ROLLOUT_KINDS = {
     pacman_k1: "rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr",
     pacman_k3: "riiiriiiriiiriiiriiiriiiriiiriiiriiiriiiriii",
@@ -147,9 +148,9 @@
     pacman_k10: "riiiiiiiiiiriiiiiiiiiiriiiiiiiiriiiiiiri",
     pacman_kinf: "riiiiiiiiiiiiiiiiiiiiiiiiiii",
     maze2d_k1: "rrrrrrrrrrrrrrrrrr",
-    maze2d_k3: "riiiriiiriiiriiiriiiriiiriiiriiiriiri",
-    maze2d_k5: "riiiiiriiiiiriiiiiriiiiriiiri",
-    maze2d_k10: "riiiiiiiiiiriiiiiiiiiiri",
+    maze2d_k3: "riiiriiiriiiriiiri",
+    maze2d_k5: "riiiiiriiiiiriiiiri",
+    maze2d_k10: "riiiiiiiiiiriiiiri",
     maze2d_kinf: "riiiiiiiiiiiii",
     sokoban_k1: "rrrrrrrrrrrrrrrrrrrrrr",
     sokoban_k3: "riiiriiiriiiriiiriiiriiiriii",
@@ -161,6 +162,17 @@
     pusht_k5: "riiiiiriiiiiriiiiiriiiiiriiiiirii",
     pusht_k10: "riiiiiiiiiiriiiiiiiiii",
     pusht_kinf: "riiiiiiiiiiiiiiiiiiiiiiiiiiii"
+  };
+  // Maze2D: the steps whose imagined frame has lost the blue agent dot ('dot_missing' in maze2d_rollouts.json, checked
+  // by make_figure_assets.py). No successful eval episode keeps it in every frame; the caption says so on these frames.
+  var ROLLOUT_NO_AGENT = {maze2d_k3: [11, 12], maze2d_k5: [14], maze2d_k10: [7, 8, 9, 10, 13, 14], maze2d_kinf: [12, 13]};
+  // the sha1 of each sprite, so a browser never plays a cached old sprite under new frame kinds (tools/stamp_assets.py
+  // rewrites this table)
+  var SPRITE_V = {
+    maze2d_k1: "43dcd41c", maze2d_k10: "0ed5e1a0", maze2d_k3: "244b78a6", maze2d_k5: "35da34a6", maze2d_kinf: "10a2e016",
+    pacman_k1: "c4afcfdd", pacman_k10: "418245d7", pacman_k3: "9d6d226a", pacman_k5: "5b0395b0", pacman_kinf: "3e83b891",
+    pusht_k1: "2efda946", pusht_k10: "3c0d2f2e", pusht_k3: "c98f1863", pusht_k5: "3d923eb4", pusht_kinf: "554c6be6",
+    sokoban_k1: "b7c09c31", sokoban_k10: "541b076c", sokoban_k3: "12db2f33", sokoban_k5: "c6e9cc81", sokoban_kinf: "f9b68009"
   };
   // sprite layout: one 504x256 cell per frame, four per row; Agima's view (248x248) at the left, the environment (256x256) at x = 248
   var SPRITE = {dir: "assets/gifs/rollout_split/", cellW: 504, cellH: 256, perRow: 4, agima: [0, 0, 248, 248], env: [248, 0, 256, 256]};
@@ -546,19 +558,25 @@
     var cur = {env: -1, k: "", key: "", frames: [], img: null, ready: false};
     var idx = 0, playing = !reduce, visible = false, wanted = false, timer = null, cache = {};
 
-    function framesOf(kinds) {
+    function framesOf(kinds, lost) {
       var out = [], step = 0, chunk = 1;
       for (var i = 0; i < kinds.length; i++) {
         if (i === 0) out.push({real: true, step: 0, start: true});
         else if (kinds[i] === "r" && kinds[i - 1] === "i") { chunk++; out.push({real: true, step: step, arrive: true}); }
-        else { step++; out.push({real: kinds[i] === "r", step: step, chunk: chunk}); }
+        else {
+          step++;
+          out.push({real: kinds[i] === "r", step: step, chunk: chunk, lost: kinds[i] === "i" && lost.indexOf(step) >= 0});
+        }
       }
       return out;
     }
-    // the frame a paused viewer shows: the last imagined frame before the first real one (where they differ most)
+    // the frame a paused viewer shows: the last imagined frame before the first real one (where they differ most),
+    // or the nearest one before it that still shows the agent
     function stillFrame() {
-      for (var i = 1; i < cur.frames.length; i++) if (cur.frames[i].arrive) return i - 1;
-      return cur.frames.length - 1;
+      var i = cur.frames.length - 1;
+      for (var j = 1; j < cur.frames.length; j++) if (cur.frames[j].arrive) { i = j - 1; break; }
+      while (i > 0 && cur.frames[i].lost) i--;
+      return i;
     }
     function caption(f) {
       var total = cur.frames[cur.frames.length - 1].step;
@@ -566,6 +584,7 @@
       if (f.start) return s + "real observation (start)";
       if (f.arrive) return s + "real observation replaces the imagined frame";
       if (f.real) return s + "real observation after every action";
+      if (f.lost) return s + (cur.k === "inf" ? "imagined" : "imagined, chunk " + f.chunk) + " · the agent is missing from Agima's frame";
       return s + (cur.k === "inf" ? "imagined, no real observation since the start" : "imagined, chunk " + f.chunk);
     }
     function paint(c, rect) {
@@ -588,7 +607,7 @@
       paint(A.canvas, SPRITE.agima); paint(E.canvas, SPRITE.env);
       var text = caption(f);
       cap.textContent = text;
-      A.canvas.setAttribute("aria-label", "Agima's frame, step " + f.step + ": " + (f.real ? "real observation" : "imagined"));
+      A.canvas.setAttribute("aria-label", "Agima's frame, step " + f.step + ": " + (f.real ? "real observation" : f.lost ? "imagined, without the agent" : "imagined"));
       E.canvas.setAttribute("aria-label", "Real environment, step " + f.step);
       track.setAttribute("aria-valuenow", String(idx + 1));
       track.setAttribute("aria-valuetext", "Frame " + (idx + 1) + " of " + cur.frames.length + ". " + text);
@@ -621,7 +640,7 @@
       if (!im) {
         im = cache[key] = new Image();
         im.decoding = "async";
-        im.src = SPRITE.dir + key + ".webp";
+        im.src = SPRITE.dir + key + ".webp" + (SPRITE_V[key] ? "?v=" + SPRITE_V[key] : "");
       }
       var done = function () {
         if (cur.key !== key) return;           // the reader picked another rollout meanwhile
@@ -655,7 +674,7 @@
       cur.ready = false; cur.img = null;
       [A.canvas, E.canvas].forEach(function (c) { var x = c.getContext && c.getContext("2d"); if (x) x.clearRect(0, 0, c.width, c.height); });
       stage.classList.add("is-loading");
-      setFrames(framesOf(ROLLOUT_KINDS[cur.key] || "r"));
+      setFrames(framesOf(ROLLOUT_KINDS[cur.key] || "r", ROLLOUT_NO_AGENT[cur.key] || []));
       idx = playing ? 0 : stillFrame();
       show(idx);
       load();
