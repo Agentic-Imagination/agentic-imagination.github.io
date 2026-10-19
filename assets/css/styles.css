@@ -766,10 +766,12 @@ p { text-wrap: pretty; }
 .f5-input .f5-board { width: 64px; flex: none; }
 .f5-input p { margin: 0; font-size: .95rem; }
 .f5-input-tag { margin-right: 6px; color: var(--text-2); font-size: .72rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
-.f5-stack { display: grid; border-radius: 12px; }
+.f5-stack { display: grid; gap: 22px; border-radius: 12px; }
+.f5-view-title { margin: 0 0 8px; color: var(--text-2); font-size: .82rem; letter-spacing: .02em; }
+.f5-view-title strong { color: var(--ink); font-weight: 700; }
+.f5-view[data-view="after"] .f5-view-title strong { color: var(--blue, #2660E0); }
 .f5-stack:focus-visible { outline-offset: 4px; }
-.f5-view { grid-area: 1 / 1; min-width: 0; visibility: hidden; }
-.f5-view.is-on { visibility: visible; }
+.f5-view { min-width: 0; }
 .f5-block { position: relative; padding: 12px 16px 10px 19px; border: 1px solid var(--line); border-radius: 12px; background: #FCFBF8; }
 .f5-block::before { content: ""; position: absolute; left: -1px; top: 12px; bottom: 12px; width: 4px; border-radius: 0 3px 3px 0; }
 .f5-block.is-f1::before { background: var(--blue); }

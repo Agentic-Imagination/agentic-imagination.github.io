@@ -106,11 +106,14 @@
     // both lanes reveal at the same time; After RL has a single lane. units[view] = [lane, ...].
     function plain(list) { return list.filter(function (s) { return !s[1] || s[1].indexOf("tk") < 0; }).map(function (s) { return s[0]; }).join("").trim(); }
     function buildView(key) {
-      var v = el("div", {class: "f5-view", "data-view": key});
+      var v = el("div", {class: "f5-view is-on", "data-view": key});
+      v.appendChild(el("p", {class: "f5-view-title"}, key === "after"
+        ? [el("strong", {text: "After RL"}), " · the new unified format"]
+        : [el("strong", {text: "Before RL"}), " · two separate formats"]));
       FIG5[key].forEach(function (blk) {
         var b = el("section", {class: "f5-block " + blk.cls, "aria-label": blk.tag + ", " + blk.sub});
         var lane = [];
-        lane.tag = blk.tag;
+        lane.tag = (key === "after" ? "After RL, " : "Before RL, ") + blk.tag;
         units[key].push(lane);
         b.appendChild(el("p", {class: "f5-tag"}, [el("strong", {text: blk.tag}), " · " + blk.sub]));
         if (blk.intro) b.appendChild(runs(blk.intro, "f5-intro"));
@@ -155,10 +158,9 @@
     var bNext = el("button", {type: "button", class: "f5-btn", "aria-label": "Next step", html: ICON.next});
     var bPlay = el("button", {type: "button", class: "f5-btn f5-btn-text", html: ICON.replay + "<span>Replay</span>"});
     var live = el("p", {class: "visually-hidden", "aria-live": "polite"});
-    var pick = seg("Fig. 5", [["before", "Before RL"], ["after", "After RL"]], function (v) { touched = true; showView(v, true); });
-    var head = el("div", {class: "f5-head"}, [pick.node, el("div", {class: "f5-steps", role: "group", "aria-label": "Plan steps"}, [bPrev, counter, bNext, bPlay]), live]);
+    var head = el("div", {class: "f5-head"}, [el("div", {class: "f5-steps", role: "group", "aria-label": "Plan steps"}, [bPrev, counter, bNext, bPlay]), live]);
     var stack = el("div", {class: "f5-stack", tabindex: "0", role: "region",
-      "aria-label": "Figure 5, step by step. Left and right arrow keys step through the plans; Enter enlarges the boards."}, [views.before, views.after]);
+      "aria-label": "Figure 5, step by step. Left and right arrow keys step through the plans; Enter enlarges the boards."}, [views.after, views.before]);
     var legend = el("p", {class: "f5-legend"}, [
       "Kept in the unified format: ",
       el("span", {class: "t-p1", text: "Format 1"}), " step-by-step rollout, ",
@@ -172,11 +174,12 @@
     var full = root.querySelector(".fig5-full");
     if (full) full.hidden = false;
 
-    var view = "after", step = 0, timer = null, touched = false;   // the new format after RL is the point: shown first
+    // Both views are always shown, After RL (the new format) first; one clock reveals every lane of both at once.
+    var lanes = units.after.concat(units.before), step = 0, timer = null, touched = false;
     // the clock runs to the longest lane; a shorter lane stays complete once it has finished
-    function total() { return Math.max.apply(null, units[view].map(function (l) { return l.length; })); }
+    function total() { return Math.max.apply(null, lanes.map(function (l) { return l.length; })); }
     function render(announce) {
-      var lanes = units[view], said = [];
+      var said = [];
       lanes.forEach(function (lane) {
         lane.forEach(function (u, i) {
           u.li.classList.toggle("is-on", i < step);
@@ -184,7 +187,7 @@
           if (u.last) u.row.classList.toggle("is-done", i < step);
         });
         var u = lane[step - 1];
-        if (u) said.push((lanes.length > 1 ? lane.tag + ": " : "") +
+        if (u) said.push(lane.tag + ": " +
           u.li.querySelector(".f5-act").textContent.replace("… ", "") + "." + (u.last ? " " + outText(u.row) : ""));
       });
       counter.textContent = "Step " + step + " / " + total();
@@ -212,29 +215,15 @@
       }, 230);
     }
     function goto(s) { stop(); step = Math.max(0, Math.min(total(), s)); render(true); }
-    function showView(v, restart) {
-      view = v;
-      pick.set(v);
-      Object.keys(views).forEach(function (k) {
-        var on = k === v;
-        views[k].classList.toggle("is-on", on);
-        if (on) { views[k].removeAttribute("aria-hidden"); views[k].removeAttribute("inert"); }
-        else { views[k].setAttribute("aria-hidden", "true"); views[k].setAttribute("inert", ""); }
-      });
-      // a switch replays the plans of that view; with reduced motion they show complete
-      if (restart && !reduced()) play();
-      else { stop(); step = reduced() ? total() : 0; render(false); }
-    }
     bPrev.addEventListener("click", function () { if (step > 0) { touched = true; goto(step - 1); } });
     bNext.addEventListener("click", function () { if (step < total()) { touched = true; goto(step + 1); } });
     bPlay.addEventListener("click", function () { touched = true; play(); });
     app.addEventListener("keydown", function (e) {
-      if (e.target && e.target.closest && e.target.closest(".seg")) return;   // the view buttons keep their keys
       var t = {ArrowLeft: step - 1, ArrowRight: step + 1, Home: 0, End: total()}[e.key];
       if (t === undefined) return;
       touched = true; goto(t); e.preventDefault();
     });
-    showView("after", false);
+    step = reduced() ? total() : 0; render(false);
     // auto-advance once, when the figure first scrolls into view
     onceVisible(stack, 0.3, function () { if (!touched && !reduced()) play(); });
   }

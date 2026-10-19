@@ -132,3 +132,9 @@ and respect `prefers-reduced-motion` (nothing moves by itself; plans show comple
 - **Link previews**: `og:*`, `twitter:*` and `canonical` use absolute URLs under
   `https://agentic-imagination.github.io/`. Update them if the site moves to another address.
   If the teaser is re-rendered under a new name, update the `<video>` source, the poster and those meta tags.
+
+## Before each push
+
+Run `python tools/stamp_assets.py`: it stamps every CSS/JS reference in `index.html` with a hash of the
+file (`?v=...`), so browsers pick up the new version right away instead of a cached one (Pages caches for
+10 minutes).
