@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Train an Imaginative Agent | Agima</title>
+  <title>Train An Imaginative Agent | Agima</title>
   <meta name="description" content="Agima (Agentic Imagination) trains an agent to imagine before it acts: a single omni model proposes actions, generates images of their outcomes, and reasons over these imagined futures to decide what to execute.">
   <meta name="theme-color" content="#FFFFFF">
   <link rel="canonical" href="https://agima.net/">
@@ -11,7 +11,7 @@
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Agima">
   <meta property="og:url" content="https://agima.net/">
-  <meta property="og:title" content="Train an Imaginative Agent">
+  <meta property="og:title" content="Train An Imaginative Agent">
   <meta property="og:description" content="Agima imagines where its actions lead, then plans from those imagined frames.">
   <meta property="og:image" content="https://agima.net/assets/images/agima_og.jpg">
   <meta property="og:image:type" content="image/jpeg">
@@ -24,7 +24,7 @@
   <meta property="og:video:width" content="1280">
   <meta property="og:video:height" content="720">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="Train an Imaginative Agent">
+  <meta name="twitter:title" content="Train An Imaginative Agent">
   <meta name="twitter:description" content="Agima imagines where its actions lead, then plans from those imagined frames.">
   <meta name="twitter:image" content="https://agima.net/assets/images/agima_og.jpg">
   <meta name="twitter:image:alt" content="Agima's imagined Sokoban plans, dead ends crossed out, above the solved real board.">
@@ -34,11 +34,11 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&amp;family=Source+Sans+3:wght@400;600&amp;display=swap">
-  <link rel="stylesheet" href="assets/css/styles.css?v=e3b85ef1">
-  <link rel="stylesheet" href="assets/css/results.css?v=49e05f37">
+  <link rel="stylesheet" href="assets/css/styles.css?v=31b1fd18">
+  <link rel="stylesheet" href="assets/css/results.css?v=72f14373">
   <link rel="stylesheet" href="assets/css/traps.css?v=5c213259">
   <link rel="stylesheet" href="assets/css/lightbox.css?v=fe5753f4">
-  <script defer src="assets/js/main.js?v=751977d6"></script>
+  <script defer src="assets/js/main.js?v=50a640ec"></script>
   <script src="assets/js/rl-charts.js?v=2427e6f5" defer></script>
   <script src="assets/js/figures.js?v=ce30c81c" defer></script>
   <script src="assets/js/traps.js?v=b4becfdb" defer></script>
@@ -69,15 +69,15 @@
 
   <main id="main">
     <header class="hero wrap" id="hero">
-      <h1 class="title">Train an Imaginative Agent</h1>
+      <h1 class="title">Train An Imaginative Agent</h1>
 
       <div class="authors">
         <p class="author-list">
           <span class="author"><a class="author-link" href="https://gejiaxin.org/" target="_blank" rel="noopener">Jiaxin Ge</a><sup class="author-mark">1,*</sup></span>
           <span class="author"><a class="author-link" href="https://www.junyi42.com/" target="_blank" rel="noopener">Junyi Zhang</a><sup class="author-mark">1,*</sup></span>
-          <span class="author"><span class="author-name">Tianning Chai</span><sup class="author-mark">1,*</sup></span>
+          <span class="author"><a class="author-link" href="./">Tianning Chai</a><sup class="author-mark">1,*</sup></span>
           <span class="author"><a class="author-link" href="https://github.com/lukehanjun" target="_blank" rel="noopener">Hanjun Yoo</a><sup class="author-mark">1</sup></span>
-          <span class="author"><span class="author-name">Chenyang Wang</span><sup class="author-mark">2</sup></span>
+          <span class="author"><a class="author-link" href="./">Chenyang Wang</a><sup class="author-mark">2</sup></span>
           <span class="author"><a class="author-link" href="https://xiuyuli.com/" target="_blank" rel="noopener">Xiuyu Li</a><sup class="author-mark">2</sup></span>
           <span class="author"><a class="author-link" href="https://weijiashi.notion.site/" target="_blank" rel="noopener">Weijia Shi</a><sup class="author-mark">3</sup></span>
           <span class="author"><a class="author-link" href="https://xudongfrankwang.github.io/" target="_blank" rel="noopener">XuDong Wang</a><sup class="author-mark">1,4</sup></span>
@@ -96,12 +96,11 @@
       </div>
 
       <div class="publication-links" role="group" aria-label="Publication links">
-        <!-- TODO(links): set the arXiv href, then remove data-todo, aria-disabled and title from it. -->
         <a class="btn" href="assets/paper/agima.pdf" target="_blank" rel="noopener">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h8l4 4v14H6zM14 3v5h5M9 13h6M9 17h6"/></svg>
           Paper
         </a>
-        <a class="btn btn-plain" href="#" data-todo aria-disabled="true" title="Coming soon">arXiv</a>
+        <a class="btn btn-plain" href="https://arxiv.org/abs/2610.26845" target="_blank" rel="noopener">arXiv</a>
         <a class="btn" href="https://github.com/Agentic-Imagination/Agima" target="_blank" rel="noopener">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 18c-4 1-4-2-5-2m10 4v-3c0-1 .1-1.5-.5-2 2 0 4-.5 4-4 0-1-.4-2-1-2.5.1-.5.5-2-.1-2.5 0 0-1-.3-3 1a10 10 0 0 0-5 0c-2-1.3-3-1-3-1-.6 1.5-.2 2-.1 2.5C3.4 9 3 10 3 11c0 3.5 2 4 4 4-.5.4-.6 1-.5 2v3"/></svg>
           Code
@@ -438,12 +437,14 @@
         </div>
         <div class="citation-box">
           <button type="button" class="copy-btn" id="copy-bibtex" data-copy="bibtex-text">Copy</button>
-          <!-- TODO(bibtex): fill in venue and year. -->
-          <pre><code id="bibtex-text">@article{agima2026,
-  title   = {Train an Imaginative Agent},
-  author  = {Ge, Jiaxin and Zhang, Junyi and Chai, Tianning and Yoo, Hanjun and Wang, Chenyang and Li, Xiuyu and Shi, Weijia and Wang, XuDong and Min, Sewon and Zettlemoyer, Luke and Darrell, Trevor and Feng, Haiwen},
-  journal = {arXiv preprint},
-  year    = {2026}
+          <pre><code id="bibtex-text">@misc{ge2026trainimaginativeagent,
+  title         = {Train An Imaginative Agent},
+  author        = {Ge, Jiaxin and Zhang, Junyi and Chai, Tianning and Yoo, Hanjun and Wang, Chenyang and Li, Xiuyu and Shi, Weijia and Wang, XuDong and Min, Sewon and Zettlemoyer, Luke and Darrell, Trevor and Feng, Haiwen},
+  year          = {2026},
+  eprint        = {2610.26845},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.AI},
+  url           = {https://arxiv.org/abs/2610.26845}
 }</code></pre>
         </div>
       </div>
@@ -455,7 +456,7 @@
       <p class="footer-brand">
         <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><rect class="bm-real" x="3" y="12" width="17" height="17" rx="4"/><rect class="bm-imag" x="12.3" y="3.3" width="16.4" height="16.4" rx="4"/></svg>
         <span class="footer-name">Agima</span>
-        <span class="footer-title">Train an Imaginative Agent</span>
+        <span class="footer-title">Train An Imaginative Agent</span>
       </p>
       <p class="footer-credit">
         Website design in the spirit of the

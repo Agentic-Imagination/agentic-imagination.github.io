@@ -1,13 +1,14 @@
 /* Agima project page: hero author links, and Table 1 (the K table): its column sizing and the emphasis on
    Agima-A7B's number in the selected column. Loaded after styles.css; uses its tokens. */
 
-/* ---------- hero: author names link to their homepages (the affiliation marks stay outside the link) ---------- */
+/* ---------- hero: every author name is a link (the affiliation marks stay outside it), with a hairline
+   underline, like the footer links, that turns ink on hover ---------- */
 .author-link {
   color: inherit;
-  text-decoration: underline 1px transparent;   /* underline only on hover */
-  text-underline-offset: .22em;
+  text-decoration: underline 1px var(--rule-strong);
+  text-underline-offset: .2em;
 }
-.author-link:hover { text-decoration-color: var(--ink); }
+.author-link:hover, .author-link:focus-visible { text-decoration-color: var(--ink); }
 .author-link:focus-visible { border-radius: 3px; outline-offset: 1px; }
 
 /* ---------- results: the section title never breaks inside "Easy-to-hard" ---------- */

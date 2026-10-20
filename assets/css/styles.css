@@ -50,11 +50,14 @@
 
 /* ============================== base ============================== */
 *, *::before, *::after { box-sizing: border-box; }
-html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; scroll-padding-top: 16px; }
+/* anchor jumps land below the sticky top bar: --bar-h is its height, kept exact by main.js */
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; scroll-padding-top: calc(var(--bar-h, 60px) + 16px); }
 @media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
 body {
   margin: 0;
-  overflow-x: hidden;
+  /* clip, not hidden: hidden makes the body a scroll container while the lightbox locks html's overflow, and
+     the sticky top bar would then scroll away under it */
+  overflow-x: hidden; overflow-x: clip;
   color: var(--ink);
   background: var(--paper);
   font-family: var(--serif);
@@ -109,10 +112,18 @@ p a:not([class]):hover, .site-footer a:hover { text-decoration-color: var(--ink)
   transform: scaleX(0); transform-origin: 0 50%;
 }
 
-/* ============================== top bar (static) ============================== */
+/* ============================== top bar (sticky) ============================== */
+/* it stays at the top of the window, under the progress line and the lightbox; once the page has scrolled, a
+   hairline sets it off from the content (.is-stuck, set by main.js). Its height never changes, so nothing jumps */
+.masthead {
+  position: sticky; top: 0; z-index: 50;
+  border-bottom: 1px solid transparent;
+  background: var(--paper);
+}
+.masthead.is-stuck { border-bottom-color: var(--rule); }
 .masthead-inner {
   display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 24px;
-  padding-block: 20px;
+  padding-block: 14px;
 }
 /* the mark: a solid ink square (real) behind a dashed blue one (imagined), as in the favicon */
 .wordmark {
@@ -129,7 +140,14 @@ p a:not([class]):hover, .site-footer a:hover { text-decoration-color: var(--ink)
   font-family: var(--sans); font-size: .9375rem; line-height: 1.4;
 }
 .nav-links a { display: inline-block; padding-block: 4px; color: var(--graphite); text-decoration: none; }
-.nav-links a:hover { color: var(--ink); text-decoration: underline 1px; text-underline-offset: .25em; }
+/* the section in view (aria-current, set by main.js) looks like a hovered link. Hover only with a real pointer:
+   a touch screen keeps :hover on the last link tapped, and two links would look current */
+.nav-links a[aria-current] { color: var(--ink); text-decoration: underline 1px; text-underline-offset: .25em; }
+@media (hover: hover) {
+  .nav-links a:hover { color: var(--ink); text-decoration: underline 1px; text-underline-offset: .25em; }
+}
+/* touch tablets get the same 32 px tall links as phones */
+@media (pointer: coarse) { .nav-links a { padding-block: 6px; } }
 
 /* ============================== hero ============================== */
 .hero { padding-top: 72px; }
@@ -207,7 +225,9 @@ p a:not([class]):hover, .site-footer a:hover { text-decoration-color: var(--ink)
 }
 
 /* ============================== sections ============================== */
-.chapter { padding-top: clamp(64px, 9vw, 128px); }
+/* a jump to a section (a link in the top bar, or #traps in the address) lands with its heading 32 px under the
+   bar: html's scroll-padding-top clears the bar, and the scroll margin takes back the section's top padding */
+.chapter { --chapter-pad: clamp(64px, 9vw, 128px); padding-top: var(--chapter-pad); scroll-margin-top: calc(16px - var(--chapter-pad)); }
 main { padding-bottom: clamp(64px, 7vw, 96px); }
 /* headings, one scale in Source Serif 4 (its optical sizes tighten the larger ones):
    h1 68 px, h2 40 px (sections), h3 26 px (sub-sections, with a short ink rule above), body 18 px;
@@ -719,8 +739,12 @@ h3 { font-family: var(--serif); font-size: 1.375rem; font-weight: 600; line-heig
 }
 @media (max-width: 640px) {
   body { font-size: 1.0625rem; }
-  .masthead-inner { flex-direction: column; align-items: flex-start; gap: 4px; padding-block: 16px 8px; }
-  .nav-links { gap: 0 16px; font-size: .875rem; }
+  /* the top bar is two rows: the mark and name, then all six links on one line (down to a 320 px screen). The
+     space between links is their own padding, so each is a 32 px tall target; the row's negative margin keeps
+     the first word in line with the mark */
+  .masthead-inner { flex-direction: column; align-items: flex-start; gap: 0; padding-block: 8px 2px; }
+  .nav-links { gap: 0; margin-inline: -6px; font-size: .875rem; }
+  .nav-links a { display: flex; align-items: center; min-height: 32px; padding: 0 6px; white-space: nowrap; }
   .hero { padding-top: 40px; }
   .author-list { gap: 0 14px; font-size: 1.0625rem; }
   .affiliations { gap: 0 14px; font-size: .9375rem; }
@@ -767,6 +791,11 @@ h3 { font-family: var(--serif); font-size: 1.375rem; font-weight: 600; line-heig
 @media (max-width: 400px) {
   .f5-steps { flex-wrap: wrap; }
   .f5-count { min-width: 0; padding-inline: 2px; }
+}
+@media (max-width: 359px) {
+  /* the top bar's six links still fit on one line */
+  .nav-links { margin-inline: -4px; font-size: .8125rem; }
+  .nav-links a { padding-inline: 4px; }
 }
 
 @media print {

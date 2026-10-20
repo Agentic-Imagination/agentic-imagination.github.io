@@ -1,7 +1,7 @@
 /* Agima project page: results tables and charts (with the "real board vs imagined" rollout viewer, Figure 4,
    linked to the K table), the Figure 1 highlight, video playback, the teaser sound toggle, the BibTeX copy
-   button and the reading-progress bar. The RL charts live in rl-charts.js, Fig. 5 in figures.js,
-   the planning-trap animations in traps.js, the lightbox and Fig. 1 hotspots in lightbox.js.
+   button, the reading-progress bar and the sticky top bar. The RL charts live in rl-charts.js, Fig. 5 in
+   figures.js, the planning-trap animations in traps.js, the lightbox and Fig. 1 hotspots in lightbox.js.
    All numbers are copied from the paper (Tables 1 and 3; Tables 1 and 2 on this page). */
 (function () {
   "use strict";
@@ -978,6 +978,56 @@
     update();
   }
 
+  /* ---------- top bar (sticky): a hairline once the page has scrolled, and the link of the section in view
+     marked (aria-current) ---------- */
+  function initMasthead() {
+    var bar = document.querySelector(".masthead");
+    if (!bar) return;
+    var root = document.documentElement;
+    var links = [].slice.call(bar.querySelectorAll('.nav-links a[href^="#"]'));
+    var sections = links.map(function (a) { return document.getElementById(a.getAttribute("href").slice(1)); });
+    var current = -1, ticking = false, held = false, settle = null;
+
+    // "location": the current place within this page
+    function mark(i) {
+      if (i === current) return;
+      current = i;
+      links.forEach(function (a, j) { if (j === i) a.setAttribute("aria-current", "location"); else a.removeAttribute("aria-current"); });
+    }
+    function update() {
+      ticking = false;
+      var y = window.pageYOffset || root.scrollTop;
+      bar.classList.toggle("is-stuck", y > 0);
+      if (held) return;
+      // the current section is the last one whose top has passed a line a third of the way down the window (below
+      // the bar); none in the summary above Method, and at the very bottom the last one, however short it is
+      var line = bar.offsetHeight + (window.innerHeight - bar.offsetHeight) / 3, i = -1;
+      sections.forEach(function (s, j) { if (s && s.getBoundingClientRect().top <= line) i = j; });
+      if (y > 0 && y + window.innerHeight >= root.scrollHeight - 2) i = sections.length - 1;
+      mark(i);
+    }
+    function request() { if (!ticking) { ticking = true; window.requestAnimationFrame(update); } }
+    function release() { held = false; request(); }
+    // a click on a link in the bar marks its section at once (none for the wordmark), and the sections the smooth
+    // scroll passes on the way are not marked: the marking resumes once the scrolling stops
+    bar.addEventListener("click", function (e) {
+      var a = e.target.closest('a[href^="#"]');
+      if (!a) return;
+      held = true; mark(links.indexOf(a));
+      clearTimeout(settle); settle = setTimeout(release, 150);
+    });
+    window.addEventListener("scroll", function () {
+      if (held) { clearTimeout(settle); settle = setTimeout(release, 150); }
+      request();
+    }, {passive: true});
+    window.addEventListener("resize", request);
+    // --bar-h (the bar's height) sets html's scroll-padding-top in styles.css, so anchor jumps land below the bar;
+    // the sections move as the figures are built, so the body is watched too
+    function measure() { root.style.setProperty("--bar-h", bar.offsetHeight + "px"); request(); }
+    if ("ResizeObserver" in window) { var ro = new ResizeObserver(measure); ro.observe(bar); ro.observe(document.body); }
+    measure();
+  }
+
   /* ---------- links that are still TODO: keep them visible but inert ---------- */
   function initTodoLinks() {
     document.querySelectorAll("a[data-todo]").forEach(function (a) {
@@ -993,7 +1043,7 @@
     if ((m = document.getElementById("k-results"))) renderKResults(m);
     if ((m = document.getElementById("reasoning-results"))) renderReasoning(m);
     initCopy(); initImagineAnimation(); initClips();
-    initVideos(); initSound(); initTodoLinks(); initProgress();
+    initVideos(); initSound(); initTodoLinks(); initProgress(); initMasthead();
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot); else boot();
 })();
