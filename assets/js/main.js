@@ -858,7 +858,7 @@
   // is not near the screen stops loading (it keeps its poster, preload="none"), and the observer plays
   // each one while it is on screen and pauses it off screen. A clip the reader paused stays paused.
   // The videos are content, so they autoplay with prefers-reduced-motion too (the page's other motion
-  // stays reduced); each has a small play/pause button to stop it (clicking the video works too).
+  // stays reduced); a bar under each has play/pause, a scrubber and the time (clicking the video toggles it too).
   function initVideos() {
     var videos = Array.prototype.slice.call(document.querySelectorAll("video"));
     if (!videos.length) return;
@@ -886,17 +886,19 @@
       // a clip that starts while off screen (the browser, or a late autoplay) is paused again;
       // one started on screen (the play button, the teaser's sound button) is no longer held
       v.addEventListener("play", function () { if (hasIO && s.known && !s.visible) v.pause(); else s.held = false; });
-      // the teaser's native controls are only the no-JS fallback (they show a running time); the button replaces them
+      // the teaser's native controls are only the no-JS fallback; the bar under each video replaces them
       v.controls = false; v.removeAttribute("controls");
       if (v.parentNode) {
         var box = v.parentNode;
         var name = v.getAttribute("data-name") || "animation";
-        var btn = el("button", {type: "button", class: "clip-toggle", html: ICONS});
-        box.appendChild(btn);
+        var btn = el("button", {type: "button", class: "media-play", html: ICONS});
+        var range = el("input", {type: "range", class: "media-range", min: "0", max: "1", step: "any", value: "0",
+                                 "aria-label": "Seek " + name});
+        var time = el("span", {class: "media-time", "aria-hidden": "true"});
+        box.parentNode.insertBefore(el("div", {class: "media-bar"}, [btn, range, time]), box.nextSibling);
         var sync = function () {
           btn.setAttribute("aria-label", (v.paused ? "Play " : "Pause ") + name);
           btn.classList.toggle("is-paused", v.paused);
-          box.classList.toggle("is-held", v.paused && s.held);
         };
         var toggle = function () {
           if (v.paused) { s.held = false; play(v); } else { s.held = true; v.pause(); }
@@ -906,6 +908,46 @@
         v.addEventListener("click", toggle);
         ["play", "playing", "pause"].forEach(function (ev) { v.addEventListener(ev, sync); });
         sync();
+        // the scrubber follows the video every frame while it plays; dragging it seeks, pausing the video until
+        // it is let go (a video the reader had paused stays paused)
+        var scrubbing = false, resume = false, raf = 0;
+        var mmss = function (t) { t = Math.max(0, Math.floor(t || 0)); return Math.floor(t / 60) + ":" + ("0" + t % 60).slice(-2); };
+        var paint = function () {
+          var d = isFinite(v.duration) ? v.duration : 0, t = v.currentTime;
+          if (+range.max !== d && d) range.max = String(d);
+          if (!scrubbing) range.value = String(t);
+          range.style.setProperty("--p", (d ? Math.min(100, t / d * 100) : 0) + "%");
+          time.textContent = mmss(t) + " / " + (d ? mmss(d) : "–:––");
+          range.setAttribute("aria-valuetext", mmss(t) + " of " + (d ? mmss(d) : "unknown"));
+        };
+        var tick = function () { paint(); raf = v.paused ? 0 : window.requestAnimationFrame(tick); };
+        v.addEventListener("playing", function () { if (!raf) raf = window.requestAnimationFrame(tick); });
+        ["loadedmetadata", "durationchange", "seeked", "pause", "timeupdate"].forEach(function (ev) { v.addEventListener(ev, paint); });
+        range.addEventListener("input", function () {
+          if (!scrubbing) { scrubbing = true; resume = !v.paused; if (resume) v.pause(); }
+          v.currentTime = +range.value;
+          paint();
+        });
+        // arrow keys step 2 s (the native step of a step="any" range is not a useful amount), Home / End jump
+        range.addEventListener("keydown", function (e) {
+          var d = isFinite(v.duration) ? v.duration : 0, k = e.key, to = null;
+          if (!d) return;
+          if (k === "ArrowLeft" || k === "ArrowDown") to = v.currentTime - 2;
+          else if (k === "ArrowRight" || k === "ArrowUp") to = v.currentTime + 2;
+          else if (k === "Home") to = 0;
+          else if (k === "End") to = d - 0.05;
+          if (to === null) return;
+          e.preventDefault();
+          v.currentTime = Math.min(d - 0.05, Math.max(0, to));
+          paint();
+        });
+        range.addEventListener("change", function () {
+          scrubbing = false;
+          if (resume) play(v);
+          resume = false;
+          paint();
+        });
+        paint();
       }
       return s;
     });
