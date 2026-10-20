@@ -1,15 +1,18 @@
 # Teaser video
 
 Renders `assets/video/agima_teaser_v3.mp4`, the 38-second teaser on the project page.
-After re-rendering, refresh the poster frame too:
-`ffmpeg -y -ss 4.0 -i assets/video/agima_teaser_v3.mp4 -frames:v 1 -c:v libwebp -quality 85 assets/video/agima_teaser_v3_poster.webp`.
+A render also writes the poster beside it (`agima_teaser_v3_poster.webp`, the end of the search scene) and, for the
+site's own teaser, the link-preview image `assets/images/agima_og.jpg` (the same frame as a JPEG).
 
 ```bash
 pip install -r tools/teaser/requirements.txt   # plus ffmpeg on PATH
 python tools/teaser/make_teaser_v3.py              # writes assets/video/agima_teaser_v3.mp4
-python tools/teaser/make_teaser_v3.py --no-audio   # the same, without the sound effects
+python tools/teaser/make_teaser_v3.py --music TRACK.mp3  # with another track as the background music
+python tools/teaser/make_teaser_v3.py --audio-only # only re-make the soundtrack of the existing render (seconds)
+python tools/teaser/make_teaser_v3.py --no-audio   # the same, without a soundtrack
 python tools/teaser/make_teaser_v3.py -o out.mp4   # or to another file
 python tools/teaser/make_teaser_v3.py --stills DIR # preview stills of every scene into DIR
+python tools/teaser/make_teaser_v3.py --poster     # only the poster and the share image, without re-rendering
 ```
 
 The script works from any directory; paths are resolved relative to the script.
@@ -41,8 +44,25 @@ Clips are H.264 without audio, CRF 25 (`--crf` to change).
 
 A full render takes about 2–3 minutes. Every frame is drawn with Pillow at 2560×1440 and
 downsampled to 1280×720, then piped to ffmpeg (H.264, 30 fps).
-The sound effects (a blip per imagined frame, a knock per dead end, a swoosh per rewind, a ding per plan
-that works) are synthesised in the script from the same timelines and muxed in as AAC.
+### Sound
+
+The soundtrack is one piece of background music, synthesised by the script itself (`render_score`), so it needs no
+licence or credit: D major at about 103 BPM, a warm pad, an electric-piano arpeggio in eighths, a soft bass and,
+from the fifth bar, a light kick and hats; bells join for the second half. Its bars are laid on the scene timeline
+(`PROG`, `_bars`): under the hook a pad on Bm7 swells into the first bar, the groove starts on the search scene's
+first frame, the tonic lands on the end card's, and the last 1.5 s fade out so the looping video starts again
+cleanly. The track is set to -18 LUFS (true peak at most -1.5 dBTP) by a two-pass, linear `loudnorm` and muxed in
+as 160 kb/s stereo AAC. The page always starts the teaser muted; its Sound button turns the music on.
+
+- `--music PATH` uses any track ffmpeg can read instead: it is looped (with a 1 s crossfade) or trimmed to the
+  video's 37.9 s, faded in over 0.5 s and out over the last 2 s, then set to the same loudness. Use a track the
+  site may host: CC0 or the Pixabay Content License (no credit needed, though a line in the page footer is kind),
+  or CC BY (Free Music Archive, ccMixter, Incompetech), which needs a credit in the footer (title, artist, licence,
+  link).
+- `--sfx` mixes the old event sounds back in (a blip per imagined frame, a knock per dead end, a swoosh per rewind,
+  a ding per plan that works; `audio_events`), with their peaks 10 dB under the music.
+- `--audio-only` re-makes only the soundtrack (with `--music` and `--sfx` as given) and swaps it into the existing
+  render (the site's teaser, or `-o`), copying the frames as they are.
 
 ## Files
 

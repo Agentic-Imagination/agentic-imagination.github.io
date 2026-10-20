@@ -20,14 +20,15 @@ _argv, sys.argv = sys.argv, sys.argv[:1]
 import make_teaser as T   # noqa: E402  (loads shared data; must not see our argv)
 sys.argv = _argv
 
-from make_teaser import (DEAD, EP34, FIG5, K5, SITE, SPR, Hi, gif_frames, img, inter, rounded_path)  # noqa: E402
+from make_teaser import (DEAD, EP34, FIG5, K5, SITE, SPR, Hi, gif_frames, img, face, rounded_path)  # noqa: E402
 
 OUT = sys.argv[1] if len(sys.argv) > 1 and sys.argv[1] != "x" else "agima_teaser_v2.mp4"
 W, H, FPS, Z = 1280, 720, 30, 2
-BG = (247, 245, 240)
-INK, MUTED, FAINT = (22, 22, 24), (118, 116, 110), (196, 193, 185)
-ACCENT, RED, GREEN = (38, 96, 224), (212, 76, 56), (18, 146, 108)
-LINE = (190, 187, 178)
+# the page's palette (assets/css/styles.css): white ground, ink, graphite, the neutral greys, and the meaning colours
+BG = (255, 255, 255)
+INK, MUTED, FAINT = (22, 24, 29), (85, 91, 103), (195, 199, 207)   # --ink, --graphite, --base-light
+ACCENT, RED, GREEN = (38, 96, 224), (212, 76, 56), (18, 146, 108)   # --blue (imagined), --red (dead end), --green (acted)
+LINE = (218, 221, 227)                                               # --rule
 
 
 # ------------------------------------------------------------------ easing
@@ -61,15 +62,12 @@ def fade(col, a):
 
 # ------------------------------------------------------------------ canvas
 def _background():
-    yy, xx = np.mgrid[0:H * Z, 0:W * Z].astype(np.float32)
-    r = np.hypot((xx - W * Z / 2) / (W * Z / 2), (yy - H * Z / 2) / (H * Z / 2))
-    v = np.clip((r - 0.55) / 0.9, 0, 1)[..., None] ** 1.6
-    edge = np.array((232, 229, 221), np.float32)
-    return Image.fromarray((np.array(BG, np.float32) * (1 - v) + edge * v).astype(np.uint8))
+    """The ground: plain white, like the page (no vignette)."""
+    return Image.new("RGB", (W * Z, H * Z), BG)
 
 
 BG2 = _background()
-_SHADOW = {}
+_MASK = {}   # rounded-corner masks, by size
 
 
 class V(Hi):
@@ -78,27 +76,24 @@ class V(Hi):
         self.d = ImageDraw.Draw(self.c)
 
     def bold(self, size):
-        return inter(size * Z, b"Bold")
+        return face(size * Z, b"Bold")
 
     def card(self, im, cx, cy, size, a=1.0, scale=1.0, r=12, nearest=False, outline=None, dashed=False, sx=1.0):
-        """Square image centered at (cx, cy) with rounded corners and a soft shadow."""
+        """Square image centered at (cx, cy) with rounded corners, set flat on the page (no shadow); the outline says
+        what it is: solid ink = real, dashed blue = imagined, red = dead end, green = acted."""
         if a <= 0 or scale <= 0 or sx <= 0.01:
             return
         w = max(2, int(size * scale * sx * Z)); h = max(2, int(size * scale * Z))
         im = im.resize((w, h), Image.NEAREST if nearest else Image.LANCZOS)
         key = (w, h, r)
-        if key not in _SHADOW:
-            pad = 18 * Z
-            sh = Image.new("L", (w + 2 * pad, h + 2 * pad), 0)
-            ImageDraw.Draw(sh).rounded_rectangle([pad, pad + 5 * Z, pad + w, pad + h + 5 * Z], radius=r * Z, fill=70)
+        if key not in _MASK:
             m = Image.new("L", (w, h), 0)
             ImageDraw.Draw(m).rounded_rectangle([0, 0, w - 1, h - 1], radius=min(r * Z, w // 2), fill=255)
-            _SHADOW[key] = (sh.filter(ImageFilter.GaussianBlur(9 * Z)), m, pad)
-        sh, m, pad = _SHADOW[key]
+            _MASK[key] = m
+        m = _MASK[key]
         if a < 1:
-            sh = sh.point(lambda v: int(v * a)); m = m.point(lambda v: int(v * a))
+            m = m.point(lambda v: int(v * a))
         X, Y = int(cx * Z - w / 2), int(cy * Z - h / 2)
-        self.c.paste(Image.new("RGB", sh.size, (60, 52, 40)), (X - pad, Y - pad), sh)
         self.c.paste(im, (X, Y), m)
         if outline:
             box = (cx - size * scale * sx / 2 - 5, cy - size * scale / 2 - 5, cx + size * scale * sx / 2 + 5, cy + size * scale / 2 + 5)
@@ -139,9 +134,10 @@ class V(Hi):
         self.text(xy, s, font, col, anchor)
 
     def headline(self, t, parts, x=70, y=70, size=46, t0=0.15, sub=None):
-        """Words rise and fade in one after another. parts: [(text, color)]."""
+        """Words rise and fade in one after another, all in ink: a plain sentence-case headline (no accent words).
+        parts: [(text, colour)]; the colour is ignored."""
         f = self.bold(size)
-        words = [(w, col) for txt, col in parts for w in txt.split(" ") if w]
+        words = [(w, INK) for txt, _ in parts for w in txt.split(" ") if w]
         cx = x
         for i, (w, col) in enumerate(words):
             p = ease_out(prog(t, t0 + i * 0.07, 0.45))
@@ -149,7 +145,7 @@ class V(Hi):
             cx += self.tlen(w + " ", f)
         if sub:
             p = ease_out(prog(t, t0 + len(words) * 0.07 + 0.1, 0.5))
-            self.text((x, y + 40 + 8 * (1 - p)), sub, inter(21 * Z), fade(MUTED, p), "ls")
+            self.text((x, y + 40 + 8 * (1 - p)), sub, face(21 * Z), fade(MUTED, p), "ls")
 
     def out(self):
         return self.c.resize((W, H), Image.LANCZOS)
@@ -253,7 +249,7 @@ def sc_hook(v, t, dur):
         v.pill(cx + size / 2 + 26, cy, "Deadlock", RED, False, ease_out(prog(t, 2.2, 0.4)), size=20)
         q = ease_out(prog(t, 2.6, 0.5))
         v.ctext((W / 2, 648 + 8 * (1 - q)), "Real feedback arrives only after acting, when it is already too late.",
-                inter(28 * Z, b"SemiBold"), fade(INK, q))
+                face(28 * Z, b"SemiBold"), fade(INK, q))
 
 
 IM_A = [(TEMPT[1], "down"), (TEMPT[2], "left")]
@@ -277,7 +273,7 @@ def sc_imagine(v, t, dur):
     done = t > COMMIT_T + 0.6 + EXEC_STEP * len(SOLVE_MOVES)
     v.card(real, bx, by, bs, ease_out(prog(t, 0.2, 0.5)), nearest=True,
            outline=GREEN if done else None)
-    v.ctext((bx, by + bs / 2 + 26), "real board", inter(16 * Z, b"SemiBold"), MUTED)
+    v.ctext((bx, by + bs / 2 + 26), "real board", face(16 * Z, b"SemiBold"), MUTED)
     lanes = [(IM_A, 300, False, 0.9, "Deadlock"), (IM_B, 535, True, 1.9, "Solved")]
     x0, pitch, ts = 400, 150, 112
     for frames, ly, ok, t0, verdict in lanes:
@@ -297,8 +293,8 @@ def sc_imagine(v, t, dur):
         te = t0 + 0.35 + len(frames) * 0.42
         v.stamp(xe, ly, ok, prog(t, te, 0.35) * dim, r=19)
         q = ease_out(prog(t, te + 0.1, 0.4)) * dim
-        v.text((xe + 30, ly), verdict, inter(20 * Z, b"SemiBold"), fade(GREEN if ok else RED, q), "lm")
-        v.text((x0 - ts / 2, ly - ts / 2 - 18), "imagined", inter(15 * Z, b"SemiBold"), fade(ACCENT, ease_out(prog(t, t0 + 0.3, 0.4)) * dim), "lm")
+        v.text((xe + 30, ly), verdict, face(20 * Z, b"SemiBold"), fade(GREEN if ok else RED, q), "lm")
+        v.text((x0 - ts / 2, ly - ts / 2 - 18), "imagined", face(15 * Z, b"SemiBold"), fade(ACCENT, ease_out(prog(t, t0 + 0.3, 0.4)) * dim), "lm")
     if commit > 0:
         v.pill(W / 2 + 40, 668, "Commit the plan that works, then act", GREEN, True, commit, size=19)
     if done:
@@ -360,12 +356,12 @@ def sc_formats(v, t, dur):
         p = ease_out(prog(t, t0, 0.5))
         v.rrect((cx - 175, 210 + 12 * (1 - p), cx + 175, 590 + 12 * (1 - p)), 22, fill=fade(WHITE, p))
         _diagram(v, t, t0 + 0.25, kind, cx, 400 + 12 * (1 - p))
-        v.ctext((cx, 258 + 12 * (1 - p)), name, inter(21 * Z, b"Bold"), fade(INK, p))
-        v.ctext((cx, 550 + 12 * (1 - p)), desc, inter(17 * Z), fade(MUTED, p))
+        v.ctext((cx, 258 + 12 * (1 - p)), name, face(21 * Z, b"Bold"), fade(INK, p))
+        v.ctext((cx, 550 + 12 * (1 - p)), desc, face(17 * Z), fade(MUTED, p))
     q = ease_out(prog(t, 2.6, 0.5))
-    v.rrect((420, 640, 434, 654), 7, fill=fade(ACCENT, q)); v.text((444, 647), "real board", inter(15 * Z), fade(MUTED, q), "lm")
+    v.rrect((420, 640, 434, 654), 7, fill=fade(ACCENT, q)); v.text((444, 647), "real board", face(15 * Z), fade(MUTED, q), "lm")
     v.rrect((560, 640, 574, 654), 5, fill=fade(WHITE, q), outline=fade(ACCENT, q), width=3)
-    v.text((584, 647), "imagined board", inter(15 * Z), fade(MUTED, q), "lm")
+    v.text((584, 647), "imagined board", face(15 * Z), fade(MUTED, q), "lm")
 
 
 def sc_general(v, t, dur):
@@ -383,10 +379,10 @@ def sc_general(v, t, dur):
         k = int(max(0, t - (t_flip + 0.25 if test else 0)) / 0.2) % len(frames)
         p = ease_out(prog(t, 0.3 + i * 0.1, 0.5))
         v.card(frames[k], cx, cy + 16 * (1 - p), size, p, sx=max(sx, 0.02), outline=ACCENT if test else None)
-        v.ctext((cx, cy - size / 2 - 30), name, inter(22 * Z, b"Bold"), fade(INK, p))
+        v.ctext((cx, cy - size / 2 - 30), name, face(22 * Z, b"Bold"), fade(INK, p))
         lab, desc, col = ("TEST", te, ACCENT) if test else ("TRAIN", tr, MUTED)
         q = p if not test else ease_out(prog(t, t_flip + 0.25, 0.3))
-        fb = inter(15 * Z, b"Bold"); fr = inter(17 * Z)
+        fb = face(15 * Z, b"Bold"); fr = face(17 * Z)
         w = v.tlen(lab, fb) + 10 + v.tlen(desc, fr)
         v.text((cx - w / 2, cy + size / 2 + 32), lab, fb, fade(col, q), "lm")
         v.text((cx - w / 2 + v.tlen(lab, fb) + 10, cy + size / 2 + 32), desc, fr, fade(INK, q), "lm")
@@ -413,12 +409,12 @@ def sc_results(v, t, dur):
             if hgt > 2:
                 v.rrect((x, base - hgt, x + bw, base), min(8, hgt / 2 - 0.5), fill=col, corners=(True, True, False, False))
             n = int(round(val * p))
-            v.ctext((x + bw / 2, base - hgt - 20), f"{n}%", inter((24 if j else 18) * Z, b"Bold"), fade(ACCENT if j else MUTED, ease_out(prog(t, 0.7, 0.3))))
-        v.ctext((gx, base + 30), env, inter(20 * Z, b"SemiBold"), fade(INK, ease_out(prog(t, 0.5, 0.4))))
+            v.ctext((x + bw / 2, base - hgt - 20), f"{n}%", face((24 if j else 18) * Z, b"Bold"), fade(ACCENT if j else MUTED, ease_out(prog(t, 0.7, 0.3))))
+        v.ctext((gx, base + 30), env, face(20 * Z, b"SemiBold"), fade(INK, ease_out(prog(t, 0.5, 0.4))))
     q = ease_out(prog(t, 1.4, 0.4))
-    v.rrect((W / 2 - 230, 662, W / 2 - 214, 678), 4, fill=fade(ACCENT, q)); v.text((W / 2 - 206, 670), "Agima", inter(16 * Z), fade(INK, q), "lm")
+    v.rrect((W / 2 - 230, 662, W / 2 - 214, 678), 4, fill=fade(ACCENT, q)); v.text((W / 2 - 206, 670), "Agima", face(16 * Z), fade(INK, q), "lm")
     v.rrect((W / 2 - 110, 662, W / 2 - 94, 678), 4, fill=fade(FAINT, q))
-    v.text((W / 2 - 86, 670), "best baseline (GPT-5.6, Gemini 3.1, fine-tuned Qwen)", inter(16 * Z), fade(INK, q), "lm")
+    v.text((W / 2 - 86, 670), "best baseline (GPT-5.6, Gemini 3.1, fine-tuned Qwen)", face(16 * Z), fade(INK, q), "lm")
 
 
 def sc_rl(v, t, dur):
@@ -429,7 +425,7 @@ def sc_rl(v, t, dur):
     for r, (y, lab, ok) in enumerate(rows):
         t0 = 0.7 + r * 0.95
         p = ease_out(prog(t, t0, 0.4))
-        v.text((90, y), lab, inter(20 * Z, b"Bold"), fade(INK, p), "lm")
+        v.text((90, y), lab, face(20 * Z, b"Bold"), fade(INK, p), "lm")
         if r:
             v.pline([(120, y - 130 + 26), (120, y - 22)], ease_io(prog(t, t0 - 0.2, 0.3)), fade(LINE, p), 2, dash=(5, 5))
         for i, im in enumerate(RL_ROWS[r]):
@@ -440,16 +436,16 @@ def sc_rl(v, t, dur):
             v.card(im, x0 + i * pitch + 30 * (1 - q), y, ts, q, r=9)
         xe = x0 + 3 * pitch + ts / 2 + 34
         v.stamp(xe, y, ok, prog(t, t0 + 0.65, 0.35), r=18)
-        v.text((xe + 28, y), "solves" if ok else "deadlock", inter(19 * Z, b"SemiBold"),
+        v.text((xe + 28, y), "solves" if ok else "deadlock", face(19 * Z, b"SemiBold"),
                fade(GREEN if ok else RED, ease_out(prog(t, t0 + 0.7, 0.3))), "lm")
     # stat card
     p = ease_out(prog(t, 1.2, 0.5))
     v.rrect((850, 230, 1210, 560), 22, fill=fade(WHITE, p))
     c = ease_out(prog(t, 1.5, 1.6))
-    v.ctext((1030, 300), "second plans that follow", inter(18 * Z), fade(MUTED, p))
-    v.ctext((1030, 326), "a plan that really failed", inter(18 * Z), fade(MUTED, p))
-    v.ctext((1030, 420), f"{int(round(74 + 24 * c))}%", inter(84 * Z, b"Bold"), fade(ACCENT, p))
-    v.ctext((1030, 500), "74% before RL", inter(18 * Z, b"SemiBold"), fade(MUTED, p))
+    v.ctext((1030, 300), "second plans that follow", face(18 * Z), fade(MUTED, p))
+    v.ctext((1030, 326), "a plan that really failed", face(18 * Z), fade(MUTED, p))
+    v.ctext((1030, 420), f"{int(round(74 + 24 * c))}%", face(84 * Z, b"Bold"), fade(ACCENT, p))
+    v.ctext((1030, 500), "74% before RL", face(18 * Z, b"SemiBold"), fade(MUTED, p))
 
 
 def sc_traps(v, t, dur):
@@ -462,17 +458,17 @@ def sc_traps(v, t, dur):
         p = ease_out(prog(t, 0.4 + i * 0.15, 0.5))
         k = min(len(frames) - 1, int(max(0, t - 0.9) / step))
         v.card(frames[k], cx, cy + 14 * (1 - p), size, p, outline=(GREEN if ok else RED) if k == len(frames) - 1 else None)
-        v.ctext((cx, cy - size / 2 - 28), title, inter(21 * Z, b"Bold"), fade(INK, p))
+        v.ctext((cx, cy - size / 2 - 28), title, face(21 * Z, b"Bold"), fade(INK, p))
         if k == len(frames) - 1:
             te = 0.9 + (len(frames) - 1) * step
             v.stamp(cx + size / 2 - 6, cy - size / 2 + 6, ok, prog(t, te, 0.35), r=20)
-            v.ctext((cx, cy + size / 2 + 30), verdict, inter(19 * Z, b"SemiBold"), fade(GREEN if ok else RED, ease_out(prog(t, te, 0.3))))
+            v.ctext((cx, cy + size / 2 + 30), verdict, face(19 * Z, b"SemiBold"), fade(GREEN if ok else RED, ease_out(prog(t, te, 0.3))))
     p = ease_out(prog(t, 1.0, 0.5)); c = ease_out(prog(t, 1.2, 1.5))
     v.rrect((900, 250, 1210, 550), 22, fill=fade(WHITE, p))
-    v.ctext((1055, 300), "route-order traps (G8 / F4)", inter(17 * Z), fade(MUTED, p))
-    v.ctext((1055, 390), f"{int(round(54 * c))}%", inter(80 * Z, b"Bold"), fade(ACCENT, p))
-    v.ctext((1055, 450), "Agima, forward thinking", inter(17 * Z, b"SemiBold"), fade(INK, p))
-    v.ctext((1055, 500), f"vs {int(round(19 * c))}% GPT-5.6 Sol", inter(17 * Z), fade(MUTED, p))
+    v.ctext((1055, 300), "route-order traps (G8 / F4)", face(17 * Z), fade(MUTED, p))
+    v.ctext((1055, 390), f"{int(round(54 * c))}%", face(80 * Z, b"Bold"), fade(ACCENT, p))
+    v.ctext((1055, 450), "Agima, forward thinking", face(17 * Z, b"SemiBold"), fade(INK, p))
+    v.ctext((1055, 500), f"vs {int(round(19 * c))}% GPT-5.6 Sol", face(17 * Z), fade(MUTED, p))
 
 
 AUTHORS = [[("Jiaxin Ge", "1,*"), ("Junyi Zhang", "1,*"), ("Tianning Chai", "1,*"), ("Hanjun Yoo", "1")],
@@ -498,19 +494,17 @@ def _marked_row(v, items, y, f_name, f_mark, col, mcol, gap, mark_first=False):
 
 def sc_end(v, t, dur):
     p = ease_out(prog(t, 0.2, 0.7))
-    v.ctext((W / 2, 228 + 16 * (1 - p)), "Agima", inter(104 * Z, b"Bold"), fade(INK, p))
+    v.ctext((W / 2, 228 + 16 * (1 - p)), "Agima", face(104 * Z, b"Bold"), fade(INK, p))
     q = ease_out(prog(t, 0.5, 0.6))
-    v.ctext((W / 2, 312 + 10 * (1 - q)), "Training an Imaginative Agent", inter(26 * Z), fade(MUTED, q))
-    w = 120 * ease_io(prog(t, 0.8, 0.6))
-    v.line([(W / 2 - w, 352), (W / 2 + w, 352)], ACCENT, 3)
+    v.ctext((W / 2, 312 + 10 * (1 - q)), "Train an Imaginative Agent", face(26 * Z), fade(MUTED, q))
     for i, row in enumerate(AUTHORS):
         r = ease_out(prog(t, 1.0 + i * 0.12, 0.5))
-        _marked_row(v, row, 418 + i * 36 + 8 * (1 - r), inter(19 * Z, b"SemiBold"), inter(12 * Z, b"SemiBold"),
+        _marked_row(v, row, 418 + i * 36 + 8 * (1 - r), face(19 * Z, b"SemiBold"), face(12 * Z, b"SemiBold"),
                     fade(INK, r), fade(MUTED, r), 26)
     r = ease_out(prog(t, 1.45, 0.5))
-    _marked_row(v, [(n, m) for m, n in AFFIL], 546 + 8 * (1 - r), inter(16 * Z), inter(11 * Z), fade(MUTED, r), fade(MUTED, r), 26,
+    _marked_row(v, [(n, m) for m, n in AFFIL], 546 + 8 * (1 - r), face(16 * Z), face(11 * Z), fade(MUTED, r), fade(MUTED, r), 26,
                 mark_first=True)
-    v.ctext((W / 2, 578 + 8 * (1 - r)), "* equal contribution     † equal advising", inter(14 * Z), fade(MUTED, r))
+    v.ctext((W / 2, 578 + 8 * (1 - r)), "* equal contribution     † equal advising", face(14 * Z), fade(MUTED, r))
 
 
 SCENES = [(sc_hook, 4.4), (sc_imagine, COMMIT_T + 0.6 + EXEC_STEP * len(SOLVE_MOVES) + 1.3), (sc_formats, 4.6),

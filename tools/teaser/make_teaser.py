@@ -38,14 +38,24 @@ def serif(size, weight=b"Regular"):
     return f
 
 
-def inter(size, weight=b"Regular"):
-    f = ImageFont.truetype(f"{HERE}/fonts/Inter.ttf", size)
-    f.set_variation_by_name(weight)
-    return f
+# The teaser's one text face is Gelasio (fonts/, SIL OFL), a transitional serif in the spirit of the page's Source
+# Serif 4. Callers name a weight; it is set one step lighter than its name, so "Bold" lands on 600 like the page's headings.
+_FACE_W = {b"Bold": b"SemiBold", b"SemiBold": b"Medium", b"ExtraBold": b"Bold", b"Black": b"Bold"}
+_FACE = {}
 
 
-F_EYE, F_H1, F_BODY, F_SMALL, F_LAB = inter(14, b"SemiBold"), serif(44), serif(25), inter(17), inter(14, b"SemiBold")
-F_TAB, F_TABB = inter(17), inter(17, b"SemiBold")
+def face(size, weight=b"Regular"):
+    key = (int(size), weight)
+    if key not in _FACE:
+        f = ImageFont.truetype(f"{HERE}/fonts/Gelasio.ttf", int(size))
+        w = _FACE_W.get(weight, weight)
+        f.set_variation_by_name(w if w in (b"Regular", b"Medium", b"SemiBold", b"Bold") else b"Regular")
+        _FACE[key] = f
+    return _FACE[key]
+
+
+F_EYE, F_H1, F_BODY, F_SMALL, F_LAB = face(14, b"SemiBold"), serif(44), serif(25), face(17), face(14, b"SemiBold")
+F_TAB, F_TABB = face(17), face(17, b"SemiBold")
 
 
 # ------------------------------------------------------------------ helpers
@@ -384,6 +394,8 @@ def s_idea(c, d, t, dur):
 # ------------------------------------------------------------------ the three formats
 # Drawn on a 2x canvas and downsampled, so lines, circles and text are antialiased.
 LINE2 = (178, 186, 202)
+# small coloured text uses the page's darker twins (styles.css --blue-ink, --green-ink, --red-ink, --amber-ink)
+TEXT_TWIN = {(38, 96, 224): (31, 82, 196), (18, 146, 108): (11, 115, 84), (212, 76, 56): (181, 58, 39), (196, 112, 18): (153, 84, 8)}
 MOVE_VEC = {"up": (0, -1), "down": (0, 1), "left": (-1, 0), "right": (1, 0)}
 
 
@@ -468,7 +480,7 @@ class Hi:
         self.d.text(tuple(np.multiply(xy, self.Z)), s, font=font, fill=col, anchor=anchor)
 
     def font(self, size, weight=b"Regular"):
-        return inter(size * self.Z, weight)
+        return face(size * self.Z, weight)
 
     def tlen(self, s, font):
         return self.d.textlength(s, font=font) / self.Z
@@ -477,7 +489,7 @@ class Hi:
         """Check or cross icon in a filled circle."""
         if fill:
             self.d.ellipse(self.z(cx - r, cy - r, cx + r, cy + r), fill=col)
-        ink = WHITE if fill else col
+        ink = (254, 254, 254) if fill else col   # not exactly the white ground, which make_teaser_v3.V3 skips as faded out
         k = r * 0.42
         if ok:
             self.line([(cx - k, cy + 0.1 * r), (cx - 0.12 * r, cy + k), (cx + k * 1.1, cy - k * 0.9)], ink, 2)
@@ -486,17 +498,17 @@ class Hi:
             self.line([(cx - k, cy + k), (cx + k, cy - k)], ink, 2)
 
     def pill(self, x, cy, label, col, ok=None, a=1.0, size=17):
-        """Filled pill with an optional check/cross icon; x is the left edge."""
+        """A plain text label (in the colour's darker text twin), with an optional check / cross before it; x is the
+        left edge. (Once a filled pill; kept under this name for its callers.) Returns its width."""
         if a <= 0:
             return 0
-        col = mix(col, a); f = inter(size * self.Z, b"SemiBold")
-        icon = 0 if ok is None else 22
-        w = self.tlen(label, f) + 30 + icon; h = size + 17
-        self.d.rounded_rectangle(self.z(x, cy - h / 2, x + w, cy + h / 2), radius=h / 2 * self.Z, fill=col)
+        col = mix(TEXT_TWIN.get(tuple(col), col), a); f = face(size * self.Z, b"SemiBold")
+        icon = 0 if ok is None else size + 4
         if ok is not None:
-            self.mark(x + 15 + 5, cy, ok, WHITE, r=9, fill=False)
-        self.text((x + 15 + icon, cy), label, f, WHITE, "lm")
-        return w
+            self.mark(x + size / 2, cy, ok, col, r=size * 0.55, fill=False)
+        self.d.text(tuple(np.multiply((x + icon, cy), self.Z)), label, font=f, fill=col, anchor="lm",
+                    stroke_width=int(3 * self.Z), stroke_fill=WHITE)
+        return self.tlen(label, f) + icon
 
     def curve(self, p0, p1, col, bend=0.5):
         """Horizontal-tangent S-curve from p0 to p1 ending in an arrowhead."""
@@ -525,7 +537,7 @@ FMT_TABS = ["Linear rollout", "Counterfactual branching", "Forward thinking"]
 
 def fmt_header(c, d, k, title, sub):
     header(d, "Three ways Agima imagines", title, sub)
-    f, fb = inter(14), inter(14, b"SemiBold")
+    f, fb = face(14), face(14, b"SemiBold")
     x = W - 70
     for i in reversed(range(3)):
         lab = FMT_TABS[i]; font = fb if i == k else f

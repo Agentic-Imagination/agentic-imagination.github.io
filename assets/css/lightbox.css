@@ -9,13 +9,12 @@
 .lbx-hint {
   position: absolute; top: 8px; right: 8px; z-index: 3;
   display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%;
-  color: #fff; background: rgba(22, 22, 24, .72);
-  box-shadow: 0 4px 14px -6px rgba(22, 22, 24, .6);
-  opacity: 0; transform: scale(.86); pointer-events: none;
-  transition: opacity 160ms ease, transform 200ms var(--ease, ease);
+  color: #fff; background: rgba(22, 24, 29, .72);
+  opacity: 0; pointer-events: none;
+  transition: opacity 160ms ease;
 }
 .lbx-hint svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-.lbx-target:hover > .lbx-hint, .lbx-target:focus-visible > .lbx-hint, .lbx-target:focus-within > .lbx-hint { opacity: 1; transform: none; }
+.lbx-target:hover > .lbx-hint, .lbx-target:focus-visible > .lbx-hint, .lbx-target:focus-within > .lbx-hint { opacity: 1; }
 .lbx-target:hover img, .lbx-target:hover canvas { filter: brightness(1.03); }
 .lbx-box img[data-lbx-key]:focus-visible, .lbx-box canvas[data-lbx-key]:focus-visible { outline: 2px solid var(--blue, #2660E0); outline-offset: 3px; }
 /* Fig. 5 boards: a small icon in the lower corner (the result badge owns the upper one) */
@@ -25,15 +24,10 @@
 .f5-step:not(.is-on) .lbx-hint { display: none; }
 /* touch screens: the icon stays visible on figures and clips (not on every Fig. 5 board) */
 @media (hover: none) {
-  .lbx-hint { top: 6px; right: 6px; width: 26px; height: 26px; opacity: .88; transform: none; }
+  .lbx-hint { top: 6px; right: 6px; width: 26px; height: 26px; opacity: .88; }
   .lbx-hint svg { width: 15px; height: 15px; }
   .lbx-hint.is-small { display: none; }
 }
-
-/* RL chapter: the line under each pair of redrawn charts, linking the paper's own figure (opens here) */
-.rl-src { margin: 10px 2px 0; }
-.rl-src a { margin-left: 4px; color: var(--blue-ink, #1F52C4); font-weight: 600; text-underline-offset: 3px; cursor: zoom-in; }
-.rl-src a:focus-visible { outline: 2px solid var(--blue, #2660E0); outline-offset: 2px; border-radius: 3px; }
 
 /* ============================== Figure 1 hotspots ============================== */
 .team-diagram.has-f1-hot a.zoom { cursor: default; }
@@ -41,74 +35,52 @@
 .f1-hot { position: absolute; inset: 0; z-index: 3; }
 .f1-spot {
   position: absolute; display: block; margin: 0; padding: 0;
-  border: 0; border-radius: 10px; background: transparent; cursor: pointer;
+  border: 0; border-radius: 8px; background: transparent; cursor: pointer;
   transition: background-color 160ms ease, box-shadow 160ms ease;
   -webkit-tap-highlight-color: transparent;
 }
 @media (hover: hover) {
   .f1-spot:hover { background: rgba(38, 96, 224, .045); box-shadow: inset 0 0 0 1.5px rgba(38, 96, 224, .45); }
-  .f1-spot:hover .f1-chip { opacity: 1; transform: none; }
 }
 .f1-spot:focus-visible { outline: none; box-shadow: inset 0 0 0 2.5px var(--blue, #2660E0); }
 .f1-spot[aria-pressed="true"]:hover { background: transparent; box-shadow: none; }
-.f1-chip {
-  position: absolute; left: 10px; top: 10px;
-  padding: 3px 10px; border-radius: 999px;
-  color: #fff; background: var(--blue-ink, #1F52C4);
-  font-size: .74rem; font-weight: 600; line-height: 1.45; white-space: nowrap;
-  opacity: 0; transform: translateY(-3px); pointer-events: none;
-  transition: opacity 160ms ease, transform 200ms var(--ease, ease);
-}
-.f1-spot:focus-visible .f1-chip { opacity: 1; transform: none; }
-.f1-spot[aria-pressed="true"] .f1-chip { opacity: 0; }
 .f1-enlarge {
   position: absolute; right: 10px; bottom: 10px; z-index: 4;
   display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 12px 0 9px;
-  border: 0; border-radius: 999px; color: #fff; background: rgba(22, 22, 24, .78);
-  font: 600 .76rem/1 var(--sans, system-ui, sans-serif); cursor: zoom-in;
-  opacity: .0; transform: translateY(3px);
-  transition: opacity 160ms ease, transform 200ms var(--ease, ease), background-color 160ms ease;
+  border: 0; border-radius: 6px; color: #fff; background: rgba(22, 24, 29, .78);
+  font: 600 .8125rem/1 var(--sans, sans-serif); cursor: zoom-in;
+  opacity: 0;
+  transition: opacity 160ms ease;
 }
 .f1-enlarge svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-.team-diagram:hover .f1-enlarge, .f1-enlarge:focus-visible { opacity: 1; transform: none; }
-.f1-enlarge:hover { background: rgba(22, 22, 24, .92); }
+.team-diagram:hover .f1-enlarge, .f1-enlarge:focus-visible { opacity: 1; }
+.f1-enlarge:hover { background: rgba(22, 24, 29, .92); }
 .f1-enlarge:focus-visible { outline: 2px solid #fff; outline-offset: -4px; box-shadow: 0 0 0 2px var(--blue, #2660E0); }
 @media (hover: none) {
-  .f1-enlarge { opacity: .9; transform: none; min-height: 28px; padding: 0 8px; }
+  .f1-enlarge { opacity: .9; min-height: 28px; padding: 0 8px; }
   .f1-enlarge span { display: none; }
 }
-.figure-tools.has-f1-cap { justify-content: space-between; align-items: center; gap: 10px 16px; flex-wrap: wrap; }
-.f1-cap {
-  flex: 1 1 22rem; min-width: 0; margin: 0;
-  color: var(--text-2, #5C5A54); font-size: .9rem; line-height: 1.5;
-}
-.f1-cap b { color: var(--ink, #161618); font-weight: 650; }
-.f1-cap i { font-family: var(--serif, Georgia, serif); font-size: 1.12em; }
+/* the Figure 1 caption (styled with .fig-cap in styles.css): math in italic, a fixed line under the figure */
+.f1-cap { min-width: 0; }
 .f1-cap sub { font-size: .72em; line-height: 0; }
-.f1-cap.is-on { color: var(--ink, #161618); }
-.f1-cap-hint { color: var(--text-2, #5C5A54); font-size: .84rem; }
-@media (max-width: 640px) {
-  .f1-chip { left: 6px; top: 6px; padding: 2px 7px; font-size: .66rem; }
-  .f1-cap { font-size: .85rem; }
-}
 
 /* ============================== the lightbox ============================== */
 html.lbx-lock { overflow: hidden; }
 .lbx {
   position: fixed; inset: 0; z-index: 1000;
   display: grid; grid-template-rows: auto minmax(0, 1fr) auto; grid-template-columns: minmax(0, 1fr);
-  color: #F2F0EA;
-  background: rgba(14, 14, 16, .9);
+  color: #F1F2F4;
+  background: rgba(14, 15, 18, .9);
   -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
   opacity: 0; transition: opacity 170ms ease;
   overscroll-behavior: contain;
 }
 .lbx[hidden] { display: none; }
 .lbx.is-open { opacity: 1; }
-.lbx-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px 6px 20px; }
-.lbx-count { font-size: .8rem; font-weight: 600; letter-spacing: .06em; color: rgba(242, 240, 234, .72); font-variant-numeric: tabular-nums; }
+.lbx-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px 6px 20px; font-family: var(--sans); }
+.lbx-count { font-size: .8125rem; font-weight: 600; color: rgba(241, 242, 244, .72); font-variant-numeric: tabular-nums; }
 .lbx-tools { display: flex; gap: 8px; margin-left: auto; }
-.lbx-tip { display: none; font-size: .78rem; color: rgba(242, 240, 234, .72); }
+.lbx-tip { display: none; font-size: .8125rem; color: rgba(241, 242, 244, .72); }
 @media (hover: none) { .lbx.is-small-fit:not(.is-zoomed) .lbx-tip { display: inline; } }
 .lbx-btn, .lbx-nav {
   display: grid; place-items: center; width: 42px; height: 42px; margin: 0; padding: 0;
@@ -152,7 +124,7 @@ html.lbx-lock { overflow: hidden; }
 .lbx-foot { display: flex; justify-content: center; padding: 12px 20px max(16px, env(safe-area-inset-bottom)); }
 .lbx-cap {
   max-width: 62rem; margin: 0; text-align: center;
-  color: rgba(242, 240, 234, .92); font-size: .92rem; line-height: 1.5;
+  color: rgba(241, 242, 244, .92); font-size: .9375rem; line-height: 1.5;
 }
 .lbx-sr { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; }
 @media (max-width: 640px) {
@@ -162,10 +134,10 @@ html.lbx-lock { overflow: hidden; }
   .lbx-foot { padding: 10px 56px max(14px, env(safe-area-inset-bottom)); }
   .lbx-prev { left: 8px; }
   .lbx-next { right: 8px; }
-  .lbx-cap { font-size: .84rem; }
+  .lbx-cap { font-size: .875rem; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .lbx, .lbx-img, .lbx-hint, .f1-chip, .f1-enlarge { transition: none; }
+  .lbx, .lbx-img, .lbx-hint, .f1-enlarge { transition: none; }
   .lbx.is-loading .lbx-spin { animation: none; }
 }
 @media (forced-colors: active) {

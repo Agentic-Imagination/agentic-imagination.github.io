@@ -176,7 +176,7 @@
       "aria-label": this.title + ", move"});
     this.count = el("span", {class: "trap-count", "aria-hidden": "true"});
     var bar = el("div", {class: "trap-bar"}, [this.btnPlay, this.btnPrev, this.range, this.btnNext, this.count]);
-    this.root.appendChild(bar);
+    stage.parentNode.insertBefore(bar, stage.nextSibling);   // under the boards, above the figure's caption
 
     this.btnPlay.addEventListener("click", function () { self.toggle(false); });
     this.btnPrev.addEventListener("click", function () { self.stepBy(-1); });
@@ -257,7 +257,7 @@
     var k = Math.floor(t + 1e-6);
     if (+this.range.value !== k) this.range.value = String(k);
     this.range.style.setProperty("--p", (this.N ? k / this.N * 100 : 0) + "%");
-    var txt = "Move " + k + " / " + this.N;
+    var txt = "Move " + k + " of " + this.N;
     this.count.textContent = txt;
     this.range.setAttribute("aria-valuetext", "Move " + k + " of " + this.N);
     this.btnPrev.setAttribute("aria-disabled", String(t <= 0));

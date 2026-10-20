@@ -1,8 +1,11 @@
 """Render the Agima teaser (1280x720, 30 fps). Every frame is drawn at 2x and downsampled.
 
 usage:
-  python make_teaser_v3.py                    # writes ../../assets/video/agima_teaser_v3.mp4 (with sound)
-  python make_teaser_v3.py --no-audio         # without the sound effects
+  python make_teaser_v3.py                    # writes ../../assets/video/agima_teaser_v3.mp4 (with its music)
+  python make_teaser_v3.py --music TRACK.mp3  # with another track as the background music (looped or trimmed, faded)
+  python make_teaser_v3.py --sfx              # with the old event sounds mixed in quietly under the music
+  python make_teaser_v3.py --audio-only       # replaces only the soundtrack of the existing render (seconds)
+  python make_teaser_v3.py --no-audio         # without a soundtrack
   python make_teaser_v3.py -o out.mp4         # writes somewhere else
   python make_teaser_v3.py --stills DIR       # saves preview stills of every scene to DIR instead
   python make_teaser_v3.py --list-clips       # the short silent clips the project page shows (see CLIPS)
@@ -38,6 +41,7 @@ Clips for the page (silent, 1280x720, each fades in from and out to the backgrou
   clip_trap_pacman    the real Pacman episodes: linear rollout (nearer food first, caught) vs forward thinking (farther
                       food first, all food eaten), with glowing trails
 """
+import json
 import os
 import subprocess
 from contextlib import contextmanager
@@ -51,9 +55,9 @@ _argv, sys.argv = sys.argv, sys.argv[:1]
 import make_teaser_v2 as V2   # noqa: E402
 sys.argv = _argv
 
-from make_teaser import MOVE_VEC  # noqa: E402
-from make_teaser_v2 import (ACCENT, BG, BG2, BOARD, DEAD, ENV, FAINT, FIG5, GREEN, H, INK, MUTED, RED, SITE, WHITE,  # noqa: E402
-                            W, Z, V, back_out, clamp, ease_io, ease_out, fade, inter, mix, prog, sc_end)
+from make_teaser import MOVE_VEC, TEXT_TWIN  # noqa: E402
+from make_teaser_v2 import (ACCENT, BG, BG2, BOARD, DEAD, ENV, FAINT, FIG5, GREEN, H, INK, LINE, MUTED, RED, SITE, WHITE,  # noqa: E402
+                            W, Z, V, back_out, clamp, ease_io, ease_out, fade, face, mix, prog, sc_end)
 
 OUT = f"{SITE}/video/agima_teaser_v3.mp4"
 FPS = 30
@@ -106,27 +110,15 @@ def _solvable(p, boxes):
 
 # ------------------------------------------------------------------ drawing helpers
 def glow_line(v, pts, col, width=3, glow=10, a=1.0):
-    """Polyline with a soft halo (drawn on a cropped layer so the blur stays cheap)."""
+    """A plain polyline. (It once had a soft halo; the teaser now draws like the page: flat, no glows.)"""
     if len(pts) < 2 or a <= 0:
         return
-    xs = [p[0] for p in pts]; ys = [p[1] for p in pts]
-    pad = glow * 3
-    x0, y0 = int((min(xs) - pad) * Z), int((min(ys) - pad) * Z)
-    x1, y1 = int((max(xs) + pad) * Z), int((max(ys) + pad) * Z)
-    m = Image.new("L", (max(1, x1 - x0), max(1, y1 - y0)), 0)
-    ImageDraw.Draw(m).line([((x - min(xs) + pad) * Z, (y - min(ys) + pad) * Z) for x, y in pts], fill=int(150 * a),
-                           width=int(glow * Z), joint="curve")
-    m = m.filter(ImageFilter.GaussianBlur(glow * Z / 2.2))
-    v.c.paste(Image.new("RGB", m.size, col), (x0, y0), m)
     v.line(pts, fade(col, a), width)
 
 
 def glow_dot(v, x, y, r, col, a=1.0):
-    pad = int(r * 3)
-    m = Image.new("L", (2 * pad * Z, 2 * pad * Z), 0)
-    ImageDraw.Draw(m).ellipse([(pad - r) * Z, (pad - r) * Z, (pad + r) * Z, (pad + r) * Z], fill=int(170 * a))
-    m = m.filter(ImageFilter.GaussianBlur(r * Z * 0.9))
-    v.c.paste(Image.new("RGB", m.size, col), (int((x - pad) * Z), int((y - pad) * Z)), m)
+    """Nothing: the halo that marked a moving point is gone (the point itself is drawn by its caller)."""
+    return
 
 
 # ------------------------------------------------------------------ search: imagine, rewind at dead ends, act (camera follows)
@@ -184,8 +176,8 @@ IMAG_TINT = (200, 216, 255)
 # Each phase imagines one step at a time. A dead end is crossed out, the imagination rewinds to where it
 # branched off, and the plan continues from there; once the plan reaches its goal the agent acts on it.
 PH = [  # caption, then the segments in the order they are imagined: ("dead", spec index) or ("main", first move, last move)
-    dict(cap=("Forward thinking", "imagine a plan; at a dead end, rewind and try another"), segs=[("dead", 0), ("main", 1, 6)]),
-    dict(cap=("Counterfactual branching", "test a risky push, rewind, carry on"), segs=[("main", 7, 7), ("dead", 1), ("main", 8, 12)]),
+    dict(cap="Forward thinking: imagine a plan, and at a dead end rewind and try another.", segs=[("dead", 0), ("main", 1, 6)]),
+    dict(cap="Counterfactual branching: test a risky push, rewind, and carry on.", segs=[("main", 7, 7), ("dead", 1), ("main", 8, 12)]),
     dict(cap=None, segs=[("dead", 2), ("main", 13, 18)]),
 ]
 T_START = 0.8      # the model intro, before the first step is imagined
@@ -272,6 +264,9 @@ def _act_head(t):
     return mc
 
 
+T_ACTED = next(tau for tau in np.arange(0, 60, 1 / 600) if _act_head(tau) >= 1)   # the first move is acted
+
+
 def _main_at(mc):
     k = min(int(mc), len(MAIN) - 2); f = mc - k
     return MAIN[k][0] + (MAIN[k + 1][0] - MAIN[k][0]) * f, MAIN[k][1] + (MAIN[k + 1][1] - MAIN[k][1]) * f
@@ -326,33 +321,40 @@ def _camera(t):
     return cx, cy, zm
 
 
+def tag_ground(v, box, a):
+    """A flat white ground (2 px corners) under a small label, as opaque as the label, so it never punches a hole."""
+    if a <= 0:
+        return
+    m = Image.new("L", (max(1, int((box[2] - box[0]) * Z)), max(1, int((box[3] - box[1]) * Z))), 0)
+    ImageDraw.Draw(m).rounded_rectangle([0, 0, m.width - 1, m.height - 1], radius=2 * Z, fill=int(255 * clamp(a)))
+    v.c.paste(Image.new("RGB", m.size, WHITE), (int(box[0] * Z), int(box[1] * Z)), m)
+
+
+def halo_text(v, xy, s, font, col, anchor="lm", halo=3):
+    """Text with a thin white halo, so a label stays readable where it crosses a line."""
+    v.d.text(tuple(np.multiply(xy, Z)), s, font=font, fill=col, anchor=anchor, stroke_width=int(halo * Z), stroke_fill=WHITE)
+
+
 def action_tag(v, x, y, move, col, a, scale=1.0):
-    """A filled pill: arrow glyph + the action's name, centred on (x, y)."""
+    """The action's name, with a small arrow glyph before it, centred on (x, y): plain text in the line's colour."""
     if a <= 0 or scale <= 0:
         return
-    f = inter(max(8, int(13 * Z * scale)), b"Bold")
-    tw = v.tlen(move, f); h = 22 * scale; aw = 11 * scale
-    w = 10 * scale + aw + 5 * scale + tw + 10 * scale
+    f = face(max(8, int(14 * Z * scale)), b"SemiBold")
+    tw = v.tlen(move, f); aw = 10 * scale
+    w = aw + 4 * scale + tw
     x0 = x - w / 2
-    v.rrect((x0, y - h / 2, x0 + w, y + h / 2), h / 2, fill=fade(col, a), outline=fade(WHITE, a), width=max(1, int(1.5 * scale)))
-    cx = x0 + 10 * scale + aw / 2
+    col = fade(TEXT_TWIN.get(tuple(col), col), a)
+    tag_ground(v, (x0 - 4 * scale, y - 9 * scale, x0 + w + 4 * scale, y + 9 * scale), a)
+    cx = x0 + aw / 2
     dx, dy = MOVE_VEC[move]; L = aw / 2
-    v.line([(cx - dx * L, y - dy * L), (cx + dx * (L - 3 * scale), y + dy * (L - 3 * scale))], fade(WHITE, a), max(1, int(2 * scale)))
-    v.head(cx + dx * L, y + dy * L, fade(WHITE, a), (dx, dy), 4.5 * scale)
-    v.text((cx + aw / 2 + 5 * scale, y + 0.5), move, f, fade(WHITE, a), "lm")
+    v.line([(cx - dx * L, y - dy * L), (cx + dx * (L - 3 * scale), y + dy * (L - 3 * scale))], col, max(1, int(2 * scale)))
+    v.head(cx + dx * L, y + dy * L, col, (dx, dy), 4.5 * scale)
+    v.text((x0 + aw + 4 * scale, y + 0.5), move, f, col, "lm")
 
 
 def rewind_tag(v, x, y, a):
-    """A 'rewind' pill with a double back-arrow, centred on (x, y)."""
-    if a <= 0:
-        return
-    f = inter(15 * Z, b"Bold"); h = 30
-    w = 14 + 22 + 6 + v.tlen("rewind", f) + 14
-    x0 = x - w / 2
-    v.rrect((x0, y - h / 2, x0 + w, y + h / 2), h / 2, fill=fade(INK, a), outline=fade(WHITE, a), width=2)
-    for dx in (0, 10):
-        v.head(x0 + 16 + dx, y, fade(WHITE, a), (-1, 0), 7)
-    v.text((x0 + 14 + 22 + 6, y + 0.5), "rewind", f, fade(WHITE, a), "lm")
+    """'rewind' with a double back-arrow, centred on (x, y): plain ink text on a small flat white tag."""
+    rewind_pill(v, x, y, a, 1.0)
 
 
 def plate(v, box, a=1.0, r=18):
@@ -372,15 +374,13 @@ def model_box(v, cx, cy, s, busy, a=1.0):
     if a <= 0:
         return
     w, h = 260 * s, 108 * s
-    if busy > 0:
-        glow_dot(v, cx, cy, 64 * s, ACCENT, 0.6 * busy * a)
-    col = fade(mix(INK, ACCENT, busy), a)
-    v.rrect((cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2), 24 * s, fill=fade(WHITE, a), outline=col, width=max(2, int(3 * s)))
+    col = fade(mix(INK, ACCENT, busy), a)   # its outline turns imagination blue while it draws a frame
+    v.rrect((cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2), 8 * s, fill=fade(WHITE, a), outline=col, width=max(2, int(3 * s)))
     if s > 0.8:   # big, for the intro: say what it is
-        v.ctext((cx, cy - 14 * s), "Agima", inter(int(52 * Z * s), b"Bold"), col)
-        v.ctext((cx, cy + 30 * s), "one omni model", inter(int(17 * Z * s), b"SemiBold"), fade(MUTED, a))
+        v.ctext((cx, cy - 14 * s), "Agima", face(int(48 * Z * s), b"Bold"), fade(INK, a))
+        v.ctext((cx, cy + 30 * s), "one omni model", face(int(18 * Z * s)), fade(MUTED, a))
     else:
-        v.ctext((cx, cy - 3 * s), "Agima", inter(int(56 * Z * s), b"Bold"), col)
+        v.ctext((cx, cy - 3 * s), "Agima", face(int(52 * Z * s), b"Bold"), fade(INK, a))
 
 
 def _model_at(t):
@@ -409,14 +409,23 @@ def stream(v, a, b, f, col, al=1.0):
     if not 0 < f < 1 or al <= 0:
         return
     x, y = a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f
-    glow_line(v, [a, (x, y)], col, 2, 6, 0.55 * al * (1 - 0.6 * f))
-    glow_dot(v, x, y, 11, col, 0.9 * al)
+    glow_line(v, [a, (x, y)], col, 2, 6, 0.4 * al * (1 - 0.6 * f))
     v.d.ellipse(v.z(x - 4, y - 4, x + 4, y + 4), fill=fade(col, al))
 
 
 def pop_r(p, r):
     """Badge radius that pops in with a small overshoot."""
     return max(1.0, r * (0.4 + 0.6 * back_out(p)))
+
+
+def cap_line(v, line, a, y, size=27):
+    """A caption: one plain sentence in ink, centred, on a white plate so boards passing below never run into it."""
+    if a <= 0:
+        return
+    f = face(size * Z)
+    w = v.tlen(line, f)
+    plate(v, (W / 2 - w / 2 - 24, y - 32, W / 2 + w / 2 + 24, y + 14), a)
+    v.text((W / 2 - w / 2, y), line, f, fade(INK, a), "ls")
 
 
 # ------------------------------------------------------------------ hook: without imagination, one tempting push loses it
@@ -458,31 +467,19 @@ def sc_hook(v, t, dur):
     rw_end = HK_REW + HK_REW_STEP * len(HK_MOVES)
     if HK_REW < t < rw_end + 0.15:   # the restart runs the moves back, like every other rewind
         rewind_tag(v, cx, cy - size / 2 - 26, min(ease_out((t - HK_REW) / 0.12), ease_out((rw_end + 0.15 - t) / 0.15)))
-    v.pill(cx - size / 2, cy - size / 2 - 22, "real board", INK, None, ease_out(prog(t, HK_SHRINK[0] + 0.45, 0.35)), size=13)
-    # what is going on
-    caps = [(0.15, ("Without imagination", "it pushes the nearest box on instinct.", INK)),
-            (HK_STUCK + 0.2, ("Deadlock.", "One push, and it can never be solved.", RED)),
-            (HK_REW, ("Restart,", "and let Agima imagine first.", ACCENT))]
-    for i, (t0, (head, rest, col)) in enumerate(caps):
+    v.pill(cx - size / 2, cy - size / 2 - 22, "real board", MUTED, None, ease_out(prog(t, HK_SHRINK[0] + 0.45, 0.35)), size=14)
+    # what is going on: one plain sentence at a time
+    caps = [(0.15, "Without imagination, it pushes the nearest box on instinct."),
+            (HK_STUCK + 0.2, "Deadlock: after one push the puzzle can never be solved."),
+            (HK_REW, "Restart, and let Agima imagine first.")]
+    for i, (t0, line) in enumerate(caps):
         t1 = caps[i + 1][0] if i + 1 < len(caps) else dur + 1
         ca = ease_out(prog(t, t0, 0.3)) * (1 - ease_out(prog(t, t1 - 0.2, 0.2)))
         if i == len(caps) - 1:
             ca *= 1 - ease_out(prog(t, HK_SHRINK[0] + 0.4, 0.35))
         if ca <= 0:
             continue
-        if i == len(caps) - 1:   # the restart: large, with Agima picked out
-            parts = [("Restart,  and let ", inter(32 * Z, b"SemiBold"), INK), ("Agima", inter(48 * Z, b"Bold"), ACCENT),
-                     (" imagine first.", inter(32 * Z, b"SemiBold"), INK)]
-            w = sum(v.tlen(tx, f_) for tx, f_, _ in parts); x = W / 2 - w / 2
-            plate(v, (x - 28, 580, x + w + 28, 650), ca, r=24)
-            for tx, f_, c_ in parts:
-                v.text((x, 630), tx, f_, fade(c_, ca), "ls"); x += v.tlen(tx, f_)
-            continue
-        f1_, f2_ = inter(26 * Z, b"Bold"), inter(26 * Z)
-        w1 = v.tlen(head + "  ", f1_); w = w1 + v.tlen(rest, f2_)
-        plate(v, (W / 2 - w / 2 - 24, 590, W / 2 + w / 2 + 24, 636), ca)
-        v.text((W / 2 - w / 2, 622), head, f1_, fade(col, ca), "ls")
-        v.text((W / 2 - w / 2 + w1, 622), rest, f2_, fade(INK, ca), "ls")
+        cap_line(v, line, ca, 622)
 
 
 # how fast the timeline plays (timeline seconds per real second), keyed by timeline time
@@ -585,7 +582,7 @@ def _search_at(v, t):
     p0 = to_s(MAIN[0])
     v.card(_sq(SST[0]), p0[0], p0[1], 150 * zm, 1.0, nearest=True, outline=GREEN if t > PH[0]["t_commit"] else INK, r=12)
     if zm > 0.6:
-        v.pill(p0[0] - 75 * zm, p0[1] - 75 * zm - 22, "real board", INK, None, 1 - zoom_a, size=13)
+        v.pill(p0[0] - 75 * zm, p0[1] - 75 * zm - 22, "real board", MUTED, None, 1 - zoom_a, size=14)
     mw, ms = _model_at(t); mp = to_s(mw); ma = _model_a(t)
     mp = (min(mp[0], W - 40 - 130 * ms), mp[1])   # when the camera lags a quick run, the model waits at the edge
     if ma > 0:
@@ -606,22 +603,14 @@ def _search_at(v, t):
         st = t - SOLVE_T0; done_ = st >= SOLVE_STEP * len(SOL)
         v.card(BOARD.at(SST, st, SOLVE_STEP), SOLVE_C[0], SOLVE_C[1], SOLVE_S, sa, 0.9 + 0.1 * back_out(sa), nearest=True,
                outline=GREEN if done_ else INK, r=12)
-        v.pill(SOLVE_C[0] - SOLVE_S / 2, SOLVE_C[1] - SOLVE_S / 2 - 22, "real environment", INK, None, sa, size=13)
+        v.pill(SOLVE_C[0] - SOLVE_S / 2, SOLVE_C[1] - SOLVE_S / 2 - 22, "real environment", MUTED, None, sa, size=14)
         v.stamp(SOLVE_C[0] + SOLVE_S / 2 + 4, SOLVE_C[1] - SOLVE_S / 2 - 4, True, prog(t, SOLVE_T0 + SOLVE_STEP * len(SOL), 0.3), r=18)
     for path, f, a, below in rewinds:   # the rewind marker runs back along the dead end, to where it branched off
         x, y = _along(path, f)
         glow_dot(v, x, y, 16, INK, 0.5 * max(a, 0.6 * (f < 1)))
         rewind_tag(v, x, y + (54 * zm + 24) * (1 if below else -1), a)
 
-    # HUD, on a soft plate so passing boards never clash with it
     ha = ease_out(prog(t, 0.1, 0.4))
-    plate(v, (50, 22, 430, 114), ha)
-    for k, (lab, val, col) in enumerate([("IMAGINED", imag_n, ACCENT), ("ACTED", len(act_moves), GREEN)]):
-        x = 70 + k * 170
-        v.text((x, 48), lab, inter(14 * Z, b"Bold"), fade(MUTED, ha), "ls")
-        v.text((x, 94), f"{val}", inter(44 * Z, b"Bold"), fade(col, ha), "ls")
-        unit = ("frame" if k == 0 else "move") + ("" if val == 1 else "s")
-        v.text((x + v.tlen(f"{val}", inter(44 * Z, b"Bold")) + 6, 94), unit, inter(16 * Z), fade(MUTED, ha), "ls")
     # the model: beside the real board for the intro, then just ahead of the frames it imagines
     model_box(v, mp[0], mp[1], ms, _busy(t), ma)
     na = ease_out(prog(t, T_START - 0.15, 0.25)) * (1 - ease_out(prog(t, OMNI_END - 0.05, 0.2))) * ma
@@ -631,13 +620,13 @@ def _search_at(v, t):
         dt_ = t - cur[-1] if cur else -1
         lit_a = 0 <= dt_ < ACT_LAG + 0.02         # the action is being written...
         lit_f = ACT_LAG <= dt_ < ACT_LAG + 0.3    # ...then the frame is being drawn
-        for k, (txt, lit) in enumerate([("1  Policy \u2192 action", lit_a), ("2  World model \u2192 next frame", lit_f)]):
-            v.text((x0n, y0n + 6 + 36 * k), txt, inter(23 * Z, b"Bold"),
+        for k, (txt, lit) in enumerate([("It writes the action,", lit_a), ("then draws the next frame.", lit_f)]):
+            v.text((x0n, y0n + 6 + 34 * k), txt, face(21 * Z),
                    fade(mix(MUTED, ACCENT if k else INK, 1.0 if lit else 0.0), na), "lm")
     # caption
     cap = None
     if t < OMNI_END:
-        cap, ca = ("Agima,", "one omni model: policy + world model."), \
+        cap, ca = "Agima is one omni model: both the policy and the world model.", \
             ease_out(prog(t, 0.15, 0.4)) * (1 - ease_out(prog(t, OMNI_END - 0.15, 0.15)))
     for i, ph in enumerate(PH):
         t_next = PH[i + 1]["t"] if i + 1 < len(PH) else T_ZOOM
@@ -645,16 +634,13 @@ def _search_at(v, t):
         if t_cap <= t < t_next and ph["cap"]:
             cap, ca = ph["cap"], ease_out(prog(t, t_cap + 0.05, 0.3)) * (1 - ease_out(prog(t, t_next - 0.2, 0.2)))
     if cap:
-        f1, f2 = inter(26 * Z, b"Bold"), inter(26 * Z)
-        w1 = v.tlen(cap[0] + "  ", f1); w = w1 + v.tlen(cap[1], f2)
-        plate(v, (W / 2 - w / 2 - 24, 580, W / 2 + w / 2 + 24, 626), ca)   # boards passing below never run into it
-        v.text((W / 2 - w / 2, 612), cap[0], f1, fade(ACCENT, ca), "ls")
-        v.text((W / 2 - w / 2 + w1, 612), cap[1], f2, fade(INK, ca), "ls")
+        cap_line(v, cap, ca, 612)
     za = ease_out(prog(t, T_ZOOM + 0.6, 0.5))
     if za > 0:
-        v.headline(t - T_ZOOM - 0.6, [("Imagine many futures.", INK), ("Act on one.", GREEN)], x=W / 2 - 260, y=612, size=34)
-    # ACT track: every committed move, in order
-    v.text((70, 672), "ACT", inter(15 * Z, b"Bold"), fade(GREEN, ha), "lm")
+        line = "Agima imagines many futures and acts on one."
+        v.headline(t - T_ZOOM - 0.6, [(line, INK)], x=W / 2 - v.tlen(line, v.bold(34)) / 2, y=612, size=34)
+    # the acted moves so far, in order (the label comes in with the first one)
+    v.text((70, 672), "Acted", face(16 * Z), fade(MUTED, ha * ease_out(prog(t, T_ACTED - 0.05, 0.25))), "lm")
     now = int((t - SOLVE_T0) / SOLVE_STEP) if t >= SOLVE_T0 else -1   # the move the real board is making
     for k, mv in enumerate(act_moves):
         if k == now:
@@ -698,9 +684,9 @@ def curve_chart(v, box, lines, u, p, ymax=50, title=None, xlabel="RL steps", siz
     """A line chart over RL steps, drawn up to 200 * u; lines are [(values, colour, name or None)]. With grow, the
     RL-step axis itself unrolls from 0 to 200 along with the curves."""
     x0, y0, x1, y1 = box
-    fa = inter(int(max(13, 16 * size) * Z))   # axis text stays readable on a small chart
+    fa = face(int(max(13, 16 * size) * Z))   # axis text stays readable on a small chart
     if title:
-        v.text((x0 + 30 * size, y0 + 48 * size), title, inter(int(22 * Z * size), b"Bold"), fade(INK, p), "ls")
+        v.text((x0 + 30 * size, y0 + 48 * size), title, face(int(21 * Z * size), b"Bold"), fade(INK, p), "ls")
     px0, px1 = x0 + 84 * size, x1 - 190 * size
     py0, py1 = y0 + (96 if title else 30) * size, y1 - 70 * size
     to = lambda s_, val: (px0 + (px1 - px0) * s_ / 200, py1 - (py1 - py0) * val / ymax)
@@ -722,10 +708,9 @@ def curve_chart(v, box, lines, u, p, ymax=50, title=None, xlabel="RL steps", siz
     for vals, col, name in lines:
         pts, val = _rl_partial(vals, u)
         sp = [to(s_, y) for s_, y in pts]
-        glow_line(v, sp, col, max(2, round(4 * size)), 9 * size, p)
+        glow_line(v, sp, col, max(2, round(3 * size)), 9 * size, p)
         hx, hy = sp[-1]
-        glow_dot(v, hx, hy, 9 * size, col, p)
-        r = 6 * size
+        r = 5 * size
         v.d.ellipse(v.z(hx - r, hy - r, hx + r, hy + r), fill=fade(col, p), outline=fade(WHITE, p), width=2 * Z)
         ends.append([hy, hx, val, col, name, vals[-1]])
     ends.sort(key=lambda e: -e[5])   # labels keep their final order, and stay at least one label apart
@@ -734,13 +719,14 @@ def curve_chart(v, box, lines, u, p, ymax=50, title=None, xlabel="RL steps", siz
         ends[i][0] = max(ends[i][0], ends[i - 1][0] + gap)
     # values are printed only once the curves reach the last checkpoint: in between they would be interpolated, not measured
     va = p * (ease_out(prog(u, 0.985, 0.015)) if u < 1 else 1.0)
+    # direct labels: the model's name, then its step-200 value under it, in ink (the line carries the colour)
     for ly, hx, val, col, name, last in ends:
         if name:
-            v.text((hx + 18 * size, ly - 15 * size), name, inter(int(18 * Z * size), b"Bold"), fade(col, p), "lm")
+            v.text((hx + 18 * size, ly - 12 * size), name, face(int(18 * Z * size), b"SemiBold"), fade(INK, p), "lm")
             if va > 0:
-                v.text((hx + 18 * size, ly + 13 * size), f"{int(round(last))}%", inter(int(30 * Z * size), b"Bold"), fade(col, va), "lm")
+                v.text((hx + 18 * size, ly + 12 * size), f"{int(round(last))}%", face(int(18 * Z * size)), fade(MUTED, va), "lm")
         elif va > 0:
-            v.text((hx + 16 * size, ly), f"{int(round(last))}%", inter(int(30 * Z * size), b"Bold"), fade(col, va), "lm")
+            v.text((hx + 16 * size, ly), f"{int(round(last))}%", face(int(20 * Z * size), b"SemiBold"), fade(INK, va), "lm")
 
 
 def _fork(im):
@@ -772,9 +758,10 @@ def _arrow(v, a, b, col, al, dashed=False):
 
 
 def _ex_title(v, y, title, sub, col, p):
-    fh = inter(20 * Z, b"Bold")
-    v.text((690, y), title, fh, fade(col, p), "ls")
-    v.text((690 + v.tlen(title + "  ", fh), y), sub, inter(16 * Z), fade(MUTED, p), "ls")
+    """A row title in ink (the boards' outlines carry the outcome colours), with a remark after it."""
+    fh = face(20 * Z, b"Bold")
+    v.text((690, y), title, fh, fade(INK, p), "ls")
+    v.text((690 + v.tlen(title + "  ", fh), y), sub, face(16 * Z), fade(MUTED, p), "ls")
 
 
 def _ex_before(v, t, t0, y):
@@ -790,7 +777,7 @@ def _ex_before(v, t, t0, y):
     _arrow(v, (EX_C[0] + EX_W / 2 + 8, y), (EX_C[1] - EX_W / 2 - 8, y), INK, ease_out(q))
     _fork_card(v, FORK_B.at(FORK_WRONG, q, 1.0), EX_C[1] + jx, y, ease_out(q), RED)
     v.stamp(EX_C[1] + EX_W / 2 + jx, y - EX_H / 2, False, prog(t, t0 + 0.3, 0.25), r=14)
-    v.text((EX_C[2] - EX_W / 2 + 4, y), "deadlock", inter(19 * Z, b"Bold"), fade(RED, ease_out(prog(t, t0 + 0.35, 0.25))), "lm")
+    v.text((EX_C[2] - EX_W / 2 + 4, y), "deadlock", face(19 * Z, b"SemiBold"), fade(TEXT_TWIN[RED], ease_out(prog(t, t0 + 0.35, 0.25))), "lm")
 
 
 def _ex_after(v, t, t0, y):
@@ -815,7 +802,7 @@ def _ex_after(v, t, t0, y):
     if s_ > 0:
         _fork_card(v, FORK_B.draw(FORK_SOL[-1]), EX_C[2], ys, s_, col, dashed=not done, tint=None if done else IMAG_TINT)
         v.stamp(EX_C[2] + EX_W / 2, ys - EX_H / 2, True, prog(t, t0 + 0.85, 0.25), r=14)
-    v.text((EX_C[2] - EX_W / 2 + 4, yr), "solved", inter(19 * Z, b"Bold"), fade(GREEN, ease_out(prog(t, t0 + 0.9, 0.25))), "lm")
+    v.text((EX_C[2] - EX_W / 2 + 4, yr), "solved", face(19 * Z, b"SemiBold"), fade(TEXT_TWIN[GREEN], ease_out(prog(t, t0 + 0.9, 0.25))), "lm")
 
 
 _TB = {}
@@ -834,13 +821,12 @@ def sc_rl(v, t, dur):
                sub="RL on 3-box Sokoban, tested on 4-box puzzles it never saw.")
     # left: the branching model's success climbs over RL
     p = ease_out(prog(t, 0.0, 0.3)); dy = 16 * (1 - p)
-    v.rrect((60, 160 + dy, 620, 640 + dy), 24, fill=fade(WHITE, p))
-    curve_chart(v, (60, 160 + dy, 620, 640 + dy), [(RL_AGIMA, ACCENT, "Agima (Branching)"), (RL_A7B, MUTED, "Agima-A7B"),
-                                                      (RL_ACT, RED, "Action-only")], ease_out(prog(t, RL_T0, RL_SWEEP)), p,
+    # the page's chart colours: the model the chart is about in blue, the reference models in neutral greys
+    curve_chart(v, (60, 160 + dy, 620, 640 + dy), [(RL_AGIMA, ACCENT, "Agima (Branching)"), (RL_A7B, (134, 140, 151), "Agima-A7B"),
+                                                      (RL_ACT, FAINT, "Action-only")], ease_out(prog(t, RL_T0, RL_SWEEP)), p,
                 title="Fork puzzles, 4 boxes", xlabel="RL steps", size=0.9)
     # right: the same fork, before and after RL
     q = ease_out(prog(t, 0.08, 0.3)); dq = 16 * (1 - q)
-    v.rrect((660, 160 + dq, 1220, 640 + dq), 24, fill=fade(WHITE, q))
     _ex_before(v, t, EX_B0, 262 + dq)
     _ex_after(v, t, EX_A0, 508 + dq)
 
@@ -867,7 +853,7 @@ EM_COMMIT = EM_NEW_T0 + 2 * EM_ROW + 0.08 * 3 + 0.28 + 0.15     # the commit, al
 
 def _think(v, xy, text, col, a, size=16):
     """'<think> text' on one line, left-middle anchored at xy; returns the text's (x0, x1)."""
-    ft, fx = inter(int(round(size * Z)), b"Bold"), inter(int(round(size * Z)), b"SemiBold")
+    ft, fx = face(int(round(size * Z)), b"Bold"), face(int(round(size * Z)), b"SemiBold")
     v.text(xy, "<think>", ft, fade(MUTED, a), "lm")
     x = xy[0] + v.tlen("<think> ", ft)
     v.text((x, xy[1]), text, fx, fade(col, a), "lm")
@@ -919,20 +905,18 @@ def _emerge_at(v, t, page=False):
     v.headline(t, [("A new format", INK), ("emerges", ACCENT), ("after RL.", INK)], size=40,
                sub="SFT taught two separate formats. RL drops part of one and merges the rest into one format.")
     dim = 1 - 0.55 * ease_out(prog(t, EM_FLY, 0.5))   # the old formats step back once their pieces move on
-    fh, fd = inter(19 * Z, b"Bold"), inter(16 * Z)
+    fh, fd = face(19 * Z, b"Bold"), face(16 * Z)
     # Format 1: one linear rollout
     p = ease_out(prog(t, 0.35, 0.45)) * dim
-    v.rrect((60, 140 + 14 * (1 - p / dim), 610, 380), 22, fill=fade(WHITE, p))
     v.text((84, 174), "Format 1", fh, fade(F1C, p), "ls")
     v.text((84 + v.tlen("Format 1  ", fh), 174), "linear rollout", fd, fade(MUTED, p), "ls")
     l1 = (84, 214)
     _, l1x = _think(v, l1, "Let me imagine the next moves step by step.", F1C, p * (0.35 if t > EM_FLY else 1))
     xe = _thumbs(v, t, 0.6, 120, 290, EM_F1, 56, 72, p)
-    v.text((xe + 18, 290), "</think>", inter(15 * Z, b"Bold"), fade(MUTED, p * ease_out(prog(t, 1.0, 0.3))), "lm")
+    v.text((xe + 18, 290), "</think>", face(15 * Z, b"Bold"), fade(MUTED, p * ease_out(prog(t, 1.0, 0.3))), "lm")
     _tag(v, l1x + 12, 214, "kept", GREEN, ease_out(prog(t, EM_CUT + 0.2, 0.3)) * p)
     # Format 2: at a fork, imagine both options up front, then commit
     p = ease_out(prog(t, 0.5, 0.45)) * dim
-    v.rrect((670, 140 + 14 * (1 - p / dim), 1220, 380), 22, fill=fade(WHITE, p))
     v.text((694, 174), "Format 2", fh, fade(F2C, p), "ls")
     v.text((694 + v.tlen("Format 2  ", fh), 174), "forward thinking", fd, fade(MUTED, p), "ls")
     cut = ease_out(prog(t, EM_CUT, 0.3)); fall = ease_io(prog(t, EM_CUT + 0.45, 0.6))
@@ -941,20 +925,20 @@ def _emerge_at(v, t, page=False):
     if cut > 0:   # this part of Format 2 is dropped
         v.line([(lx0 - 2, 214 + 10 * fall), (lx0 - 2 + (lx1 - lx0 + 4) * cut, 214 + 10 * fall)], fade(RED, la), 2)
         _tag(v, min(lx1 + 10, 1220 - 100), 190, "discarded", RED, ease_out(prog(t, EM_CUT + 0.25, 0.3)) * p * (1 - fall))
-    fc = inter(15 * Z, b"Bold")
+    fc = face(15 * Z, b"Bold")
     for k, ((ims, ok), y) in enumerate(zip(EM_F2, (262, 316))):
         moving = k == 1 and t > _em_leave(2)   # only Candidate 2's label leaves; Candidate 1 stays behind
         v.text((694, y), f"Candidate {k + 1}", fc, fade(F2C, p * (0.35 if moving else 1)), "lm")
         xe = _thumbs(v, t, 0.75, 836, y, ims, 44, 54, p, F2C)
         v.stamp(xe + 22, y, ok, prog(t, 1.25, 0.3), r=12)
-    v.text((694, 356), "I will commit Candidate 1. </think>", inter(15 * Z, b"SemiBold"),
+    v.text((694, 356), "I will commit Candidate 1. </think>", face(15 * Z, b"SemiBold"),
            fade(F2C, p * ease_out(prog(t, 1.3, 0.3)) * (0.35 if t > _em_leave(0) else 1)), "lm")
     _tag(v, 836 + 3 * 54 + 22 + 46, 289, "kept", GREEN, ease_out(prog(t, EM_CUT + 0.35, 0.3)) * p)   # candidates, results, commit
     # the emergent format: Format 1's opening, then Format 2's candidates, one at a time, the next only after a failure
     p = ease_out(prog(t, EM_FLY - 0.2, 0.45))
     if p <= 0:
         return
-    v.rrect((60, 400 + 14 * (1 - p), 1220, 700), 22, fill=fade(WHITE, p))
+    v.line([(60, 400), (1220, 400)], fade(LINE, p), 1)   # a hairline between the two SFT formats and the new one
     # the page's version is centred in the whole panel and set larger (k); the teaser's leaves room for the curve
     k_ = 1.25 if page else 1.0
     bx = 234 if page else 84                    # left edge of the unified format's text
@@ -962,16 +946,11 @@ def _emerge_at(v, t, page=False):
     ts, tp = (50, 76) if page else (46, 60)     # thumbnail size and pitch
     sz = lambda n, g=1.0: n * (1 + (k_ - 1) * g)   # a font size n, grown by g of the way to the larger type
     band_r = W - bx + 18 if page else 706
-    # once everything has landed, light bands show the new format's two parts: Format 1's, then Format 2's
-    ba = ease_out(prog(t, _em_leave(2) + EM_DROP, 0.4)) * p
-    if ba > 0:
-        for col, (y0b, y1b) in ((F1C, (447, 539)), (F2C, (542, 684))):
-            v.rrect((bx - 18, y0b, band_r, y1b), 12, fill=mix(WHITE, col, 0.09 * ba))
     # the header: the new format, as the sum of the two it came from
     ha = ease_out(prog(t, EM_FLY + 0.6, 0.3)) * p   # it waits for Format 1's line to pass it
     if ha > 0:
         x = bx
-        fhb, fdb = inter(int(sz(19) * Z), b"Bold"), inter(int(sz(16) * Z))
+        fhb, fdb = face(int(sz(19) * Z), b"Bold"), face(int(sz(16) * Z))
         for txt, col, f_ in (("Unified format", INK, fhb), ("  =  ", MUTED, fdb), ("Format 1", F1C, fhb), ("  +  ", MUTED, fdb),
                              ("Format 2", F2C, fhb)):
             v.text((x, 434), txt, f_, fade(col, ha), "ls"); x += v.tlen(txt, f_)
@@ -982,22 +961,16 @@ def _emerge_at(v, t, page=False):
     landed = ease_out(prog(t, _em_leave(2) + EM_DROP, 0.3)) * p
     _tag(v, tx1 + 12, 466, "from Format 1", F1C, landed, int(sz(12)))
     rows = (512, 566, 620)
-    # brackets tie each part to its source: Format 1's line and the rollout under it, then Format 2's candidates and commit
-    if landed > 0:
-        for col, ys in ((F1C, (466, rows[0])), (F2C, (rows[1], rows[2], 664))):
-            v.line([(bx - 12, ys[0] - 12), (bx - 12, ys[-1] + 10)], fade(col, landed), 3)
-            for y in ys:
-                v.line([(bx - 12, y), (bx - 6, y)], fade(col, landed), 3)
     for k, ((label, ims, ok), y) in enumerate(zip(EM_NEW, rows)):
         t0 = EM_NEW_T0 + k * EM_ROW
         if label:   # Format 2's candidate labels come down, lowest first
             g = prog(t, _em_leave(3 - k), EM_DROP)
             sy = (None, 316, 340)[k]
             lab_xy = _em_path((694, sy), (bx, y), g); la = p * min(1, 0.4 + g) * (1 if k < 2 else min(1, 3 * g))
-            flab = inter(int(sz(15, g) * Z), b"Bold")
+            flab = face(int(sz(15, g) * Z), b"Bold")
         nx = 0
         if k:   # "Next," is new, in neither format: the label makes room, then it fades in
-            fnx = inter(int(sz(15) * Z), b"Bold")
+            fnx = face(int(sz(15) * Z), b"Bold")
             nx = v.tlen("Next, ", fnx) * ease_out(prog(t, t0 - 0.4, 0.25))
             na = ease_out(prog(t, t0 - 0.15, 0.25)) * p
             v.text((lab_xy[0], lab_xy[1]), "Next,", fnx, fade(INK, na), "lm")
@@ -1009,12 +982,12 @@ def _emerge_at(v, t, page=False):
         te = t0 + 0.08 * 3 + 0.28
         v.stamp(xe + 24 * k_, y, ok, prog(t, te, 0.25), r=13 * k_)
         ra = ease_out(prog(t, te + 0.05, 0.25)) * p
-        v.text((xe + 46 * k_, y), "Result: succeeds." if ok else "Result: deadlock.", inter(int(sz(15) * Z), b"SemiBold"),
+        v.text((xe + 46 * k_, y), "Result: succeeds." if ok else "Result: deadlock.", face(int(sz(15) * Z), b"SemiBold"),
                fade(GREEN if ok else RED, ra), "lm")
     # Format 2's commit comes down with them, waits, and names the plan that worked once one does
     g = prog(t, _em_leave(0), EM_DROP)
     if g > 0:
-        fcm = inter(int(sz(15, g) * Z), b"SemiBold")
+        fcm = face(int(sz(15, g) * Z), b"SemiBold")
         won = ease_out(prog(t, EM_COMMIT, 0.3))
         if g < 1:
             line, ca = "I will commit Candidate 1. </think>", min(1, 0.4 + g)
@@ -1026,7 +999,7 @@ def _emerge_at(v, t, page=False):
         return
     # the teaser only: how often it uses the new format, climbing over RL steps as the format comes together
     q = ease_out(prog(t, _em_leave(2) + EM_DROP, 0.4)) * p   # once the pieces have landed
-    v.text((800, 452), "Episodes in the unified format (3 boxes)", inter(17 * Z, b"Bold"), fade(INK, q), "ls")
+    v.text((800, 452), "Episodes in the unified format (3 boxes)", face(17 * Z, b"Bold"), fade(INK, q), "ls")
     curve_chart(v, (722, 446, 1248, 688), [(EM_HYBRID, ACCENT, None)], ease_io(prog(t, EM_NEW_T0, 3 * EM_ROW + 0.6)), q,
                 ymax=100, xlabel="RL step", size=0.85)
 
@@ -1038,7 +1011,7 @@ ENV_FLIP = 1.5   # all four tasks flip from their train episode to their test ep
 
 
 def sc_envs(v, t, dur):
-    v.headline(t, [("Trained on", INK), ("easy.", MUTED), ("Tested on", INK), ("hard.", ACCENT)], size=44,
+    v.headline(t, [("Trained on easy levels, tested on hard ones.", INK)], size=44,
                sub="Success on the hard test sets (K = 5): Agima vs the best baseline.")
     size, pitch = 196, 292
     x0 = W / 2 - 1.5 * pitch
@@ -1053,15 +1026,12 @@ def sc_envs(v, t, dur):
         frames = tef if test else trf
         kf = int(max(0, t - (t_flip + 0.25 if test else 0)) / 0.2) % len(frames)
         p = ease_out(prog(t, 0.3 + i * 0.1, 0.5))
-        v.card(frames[kf], cx, cy + 16 * (1 - p), size, p, sx=max(sx, 0.02), outline=ACCENT if test else None)
-        v.ctext((cx, cy - size / 2 - 28), name, inter(22 * Z, b"Bold"), fade(INK, p))
+        v.card(frames[kf], cx, cy + 16 * (1 - p), size, p, sx=max(sx, 0.02), outline=INK)   # ground truth: a real episode
+        v.ctext((cx, cy - size / 2 - 28), name, face(22 * Z, b"Bold"), fade(INK, p))
         tr, te = ENV_DESC[key]
-        lab, desc, col = ("TEST", te, ACCENT) if test else ("TRAIN", tr, MUTED)
+        desc = (te + " (test)") if test else (tr + " (train)")
         q = p if not test else ease_out(prog(t, t_flip + 0.25, 0.3))
-        fb = inter(14 * Z, b"Bold"); fr = inter(16 * Z)
-        w = v.tlen(lab, fb) + 9 + v.tlen(desc, fr)
-        v.text((cx - w / 2, cy + size / 2 + 26), lab, fb, fade(col, q), "lm")
-        v.text((cx - w / 2 + v.tlen(lab, fb) + 9, cy + size / 2 + 26), desc, fr, fade(INK, q), "lm")
+        v.ctext((cx, cy + size / 2 + 26), desc, face(17 * Z), fade(MUTED, q))
         # results for this task, rising once its test episode is showing
         tb = t_flip + 0.55
         v.line([(cx - 80, base), (cx + 80, base)], fade(FAINT, ease_out(prog(t, tb - 0.2, 0.3))), 2)
@@ -1072,12 +1042,12 @@ def sc_envs(v, t, dur):
             bw = 50; x = cx - bw - 5 if j == 0 else cx + 5
             hgt = hmax * val / 45 * g
             if hgt > 2:
-                v.rrect((x, base - hgt, x + bw, base), min(7, hgt / 2 - 0.5), fill=colb, corners=(True, True, False, False))
-            v.ctext((x + bw / 2, base - hgt - 16), f"{int(round(val * g))}%", inter((22 if j else 16) * Z, b"Bold"),
-                    fade(ACCENT if j else MUTED, min(1, g * 2)))
+                v.rrect((x, base - hgt, x + bw, base), min(2, hgt / 2 - 0.5), fill=colb, corners=(True, True, False, False))
+            v.ctext((x + bw / 2, base - hgt - 16), f"{int(round(val * g))}%", face(18 * Z, b"SemiBold" if j else b"Regular"),
+                    fade(INK if j else MUTED, min(1, g * 2)))
     q = ease_out(prog(t, ENV_FLIP + 0.6, 0.4))
-    v.rrect((W / 2 - 150, 676, W / 2 - 136, 690), 4, fill=fade(ACCENT, q)); v.text((W / 2 - 128, 683), "Agima", inter(15 * Z), fade(INK, q), "lm")
-    v.rrect((W / 2 - 40, 676, W / 2 - 26, 690), 4, fill=fade(FAINT, q)); v.text((W / 2 - 18, 683), "best baseline", inter(15 * Z), fade(INK, q), "lm")
+    v.rrect((W / 2 - 150, 676, W / 2 - 136, 690), 2, fill=fade(ACCENT, q)); v.text((W / 2 - 128, 683), "Agima", face(16 * Z), fade(INK, q), "lm")
+    v.rrect((W / 2 - 40, 676, W / 2 - 26, 690), 2, fill=fade(FAINT, q)); v.text((W / 2 - 18, 683), "best baseline", face(16 * Z), fade(INK, q), "lm")
 
 
 def sc_end_fast(v, t, dur):
@@ -1086,7 +1056,7 @@ def sc_end_fast(v, t, dur):
 
 
 SCENES = [  # (scene, duration, fade in, fade out)
-    (sc_hook, HOOK_DUR, True, False),
+    (sc_hook, HOOK_DUR, False, False),   # no fade-in: the first frame is the board, so the video plays at once
     (sc_search, SEARCH_DUR, False, True),
     (sc_envs, ENV_FLIP + 0.55 + 0.9 + 1.5, True, True),
     (sc_rl, max(RL_T0 + RL_SWEEP, EX_A0 + 1.1) + 1.2, True, True),
@@ -1127,10 +1097,23 @@ def frame(fn, t, dur, fin=True, fout=True):
     return Image.blend(bg, im, min(a_in, a_out))
 
 
-# ------------------------------------------------------------------ sound: synthesised, timed off the same timelines
+# ------------------------------------------------------------------ sound
+# The soundtrack is one piece of background music, synthesised below from the scene timeline, so there is no licence
+# to track: D major at about 103 BPM, its bar lines laid so the groove starts on the search scene's first frame and the
+# tonic lands on the end card's. --music PATH puts any other track under the video instead (looped or trimmed to it,
+# faded in and out). The old event sounds (a blip per imagined frame, a knock per dead end, ...) are off by default;
+# --sfx mixes them back in, quietly, under the music. Either way the result is set to LUFS by a two-pass loudnorm.
 SR = 48000
+LUFS = -18          # integrated loudness of the final soundtrack (EBU R128), true peak at most -1.5 dBTP
 
 
+def _scene_starts():
+    """{scene name: its first frame in seconds} (frame-exact, as rendered), and the video's length."""
+    fr = np.cumsum([0] + [int(round(d * FPS)) for _, d, _, _ in SCENES]) / FPS
+    return dict(zip([fn.__name__ for fn, _, _, _ in SCENES], fr)), float(fr[-1])
+
+
+# --- the old event sounds (only with --sfx)
 def _env(n, attack, decay):
     t = np.arange(n) / SR
     return np.minimum(1, t / max(attack, 1e-4)) * np.exp(-t / decay)
@@ -1177,7 +1160,7 @@ def snd_swoosh(dur=0.32, amp=0.1):
 
 def audio_events():
     """[(time in the video, sound)] for every event the eye should hear."""
-    starts = dict(zip([fn.__name__ for fn, _, _, _ in SCENES], np.cumsum([0] + [d for _, d, _, _ in SCENES])))
+    starts = _scene_starts()[0]
     ev = []
     # hook: the jam, then the restart
     h = starts["sc_hook"]
@@ -1208,27 +1191,286 @@ def audio_events():
     return ev
 
 
-def render_audio(path, total):
-    out = np.zeros(int((total + 1.5) * SR))
-    for t, x in audio_events():
-        i = int(t * SR)
-        if 0 <= i < len(out):
-            out[i:i + len(x)] += x[:len(out) - i]
-    out = out[:int(total * SR)]
-    out *= 0.89 / max(1e-6, np.abs(out).max())   # peak at -1 dBFS
-    pcm = (out * 32767).astype("<i2").tobytes()
+# --- the background score
+_PC = {n: i for i, n in enumerate("C C# D D# E F F# G G# A A# B".split())}
+# chord: (pad voicing, bass root, arpeggio tones: root, fifth, octave, tenth, twelfth)
+CHORDS = {
+    "D":     ("A3 D4 F#4 A4", "D2", "D4 A4 D5 F#5 A5"),
+    "A":     ("A3 C#4 E4 A4", "A2", "A3 E4 A4 C#5 E5"),
+    "Asus4": ("A3 D4 E4 A4",  "A2", "A3 E4 A4 D5 E5"),
+    "Bm7":   ("B3 D4 F#4 A4", "B2", "B3 F#4 B4 D5 F#5"),
+    "Gadd9": ("B3 D4 G4 A4",  "G2", "G3 D4 A4 B4 D5"),
+    "Em7":   ("B3 D4 E4 G4",  "E2", "E4 B4 D5 G5 B5"),
+}
+# under the hook: Bm7, then from the restart Gadd9, swelling into the first bar. Then one chord per bar from the search
+# scene's first frame (a pair splits its bar); the last bar is the end card's
+PROG = ["D", "A", "Bm7", "Gadd9", "D", "A", "Bm7", "Gadd9", "Em7", "Gadd9", "Bm7", "A", "Gadd9", ("Asus4", "A"), "D"]
+GROOVE, LIFT = 4, 8     # the bars where the drums come in, and where the bells join and the kick goes to every beat
+ARP = [0, 1, 2, 3, 4, 3, 2, 1]                               # the eighth-note pattern over the arpeggio tones
+ARP_VEL = [1.0, 0.62, 0.78, 0.66, 0.86, 0.6, 0.74, 0.58]
+
+
+def hz(note):
+    """'F#4' -> 369.99 (A4 = 440 Hz)."""
+    return 440.0 * 2 ** ((_PC[note[:-1]] + 12 * int(note[-1]) - 57) / 12)
+
+
+def _bars():
+    """(the first bar's time, the bar length): PROG runs from the search scene's first frame to the end card's."""
+    st, _ = _scene_starts()
+    t0 = st["sc_search"]; bar = (st["sc_end_fast"] - t0) / (len(PROG) - 1)
+    assert 2.0 < bar < 2.7, f"bar of {bar:.2f} s: the tempo is off; change PROG's length"
+    return t0, bar
+
+
+def _segments(total):
+    """[(start, end, chord)] over the whole video."""
+    t0, bar = _bars()
+    segs = [(0.0, HK_REW, "Bm7"), (HK_REW, t0, "Gadd9")]
+    for b, ch in enumerate(PROG):
+        s = t0 + b * bar; e = s + bar if b < len(PROG) - 1 else total
+        segs += [(s, s + bar / 2, ch[0]), (s + bar / 2, e, ch[1])] if isinstance(ch, tuple) else [(s, e, ch)]
+    return segs
+
+
+def _chord_at(segs, t):
+    return next((c for s, e, c in segs if s <= t + 1e-6 < e), segs[-1][2])
+
+
+def _ramp(x):
+    """0 -> 1, smoothly, as x goes 0 -> 1."""
+    return np.sin(np.pi / 2 * np.clip(x, 0, 1)) ** 2
+
+
+def _wavetable(f, rolloff, seed, size=4096):
+    """One cycle of a band-limited saw whose harmonics fall off above `rolloff` Hz (for a tone at f Hz)."""
+    x = np.arange(size) / size; rng = np.random.default_rng(seed)
+    tab = sum(np.exp(-k * f / rolloff) / k * np.sin(2 * np.pi * k * x + rng.uniform(0, 2 * np.pi))
+              for k in range(1, max(1, int(5000 / f)) + 1))
+    return tab / np.abs(tab).max()
+
+
+def _osc(tab, f, t):
+    ph = (f * t) % 1.0 * len(tab); i = ph.astype(int); fr = ph - i
+    return tab[i] * (1 - fr) + tab[(i + 1) % len(tab)] * fr
+
+
+def _epiano(f, vel, ring=0.42):
+    """A soft electric-piano note (two-operator FM, its brightness fading fast)."""
+    n = int((ring + 0.45) * SR); t = np.arange(n) / SR
+    idx = (0.9 + 1.6 * vel) * min(1.0, (330 / f) ** 0.5) * np.exp(-t / 0.45)
+    y = np.sin(2 * np.pi * f * t + idx * np.sin(2 * np.pi * f * t)) + 0.1 * np.sin(8 * np.pi * f * t) * np.exp(-t / 0.12)
+    return vel * y * np.minimum(1, t / 0.003) * np.exp(-t / 0.75) * (1 - _ramp((t - ring) / 0.45))
+
+
+def _bell(f, vel, ring=2.2):
+    """A celesta-like bell."""
+    n = int(ring * SR); t = np.arange(n) / SR
+    y = sum(a * np.sin(2 * np.pi * f * m * t) * np.exp(-t / d) for m, a, d in ((1, 1.0, ring / 3), (2, 0.2, 0.4), (3, 0.08, 0.2), (5.04, 0.04, 0.1)))
+    return vel * y * np.minimum(1, t / 0.002) * (1 - _ramp((t - ring + 0.3) / 0.3))
+
+
+def _bass(f, dur, vel, attack=0.012):
+    n = int((dur + 0.12) * SR); t = np.arange(n) / SR
+    y = np.sin(2 * np.pi * f * t) + 0.35 * np.sin(4 * np.pi * f * t) + 0.1 * np.sin(6 * np.pi * f * t)
+    return vel * y * _ramp(t / attack) * (0.72 + 0.28 * np.exp(-t / 0.3)) * (1 - _ramp((t - dur) / 0.12))
+
+
+def _kick(vel):
+    """A soft, round kick: a falling sine, no click."""
+    n = int(0.42 * SR); t = np.arange(n) / SR
+    f = 47 + 60 * np.exp(-t / 0.035)
+    return vel * np.sin(2 * np.pi * np.cumsum(f) / SR) * np.exp(-t / 0.17) * _ramp(t / 0.002)
+
+
+def _noise_band(n, lo, hi, seed):
+    x = np.random.default_rng(seed).standard_normal(n)
+    X = np.fft.rfft(x); fr = np.fft.rfftfreq(n, 1 / SR)
+    X *= (fr / lo) ** 4 / (1 + (fr / lo) ** 4) / (1 + (fr / hi) ** 4)
+    y = np.fft.irfft(X, n)
+    return y / np.abs(y).max()
+
+
+def _hat(vel, seed, decay=0.022, attack=0.0008):
+    n = int(0.12 * SR); t = np.arange(n) / SR
+    return vel * _noise_band(n, 7000, 14000, seed) * _ramp(t / attack) * np.exp(-t / decay)
+
+
+def _ir(rt60=2.4, pre=0.018, seed=3):
+    """A stereo room: decaying noise, darker than the dry sound, one channel per side."""
+    n = int(rt60 * 1.1 * SR); t = np.arange(n) / SR
+    ir = np.random.default_rng(seed).standard_normal((2, n)) * np.exp(-6.9 * t / rt60)
+    F = np.fft.rfft(ir, axis=1); F /= 1 + (np.fft.rfftfreq(n, 1 / SR) / 5000) ** 2
+    ir = np.concatenate([np.zeros((2, int(pre * SR))), np.fft.irfft(F, n, axis=1)], axis=1)
+    return ir / np.sqrt((ir ** 2).sum(axis=1, keepdims=True))
+
+
+def _reverb(x, ir):
+    """The wet signal: the mid of x through each side's room."""
+    mid = x.mean(axis=0) if x.ndim == 2 else x
+    nfft = 1 << (len(mid) + ir.shape[1] - 2).bit_length()
+    return np.fft.irfft(np.fft.rfft(mid, nfft)[None] * np.fft.rfft(ir, nfft, axis=1), nfft, axis=1)[:, :len(mid)]
+
+
+def _place(bus, x, t, pan=0.0):
+    """Add the mono sound x to the stereo bus at time t (equal-power pan, -1 left .. 1 right)."""
+    i = int(round(t * SR)); j = max(0, -i)
+    x = x[j:bus.shape[1] - i]
+    if len(x) <= 0:
+        return
+    a = (pan + 1) * np.pi / 4
+    bus[:, i + j:i + j + len(x)] += np.sqrt(2) * np.array([[np.cos(a)], [np.sin(a)]]) * x
+
+
+def render_score(n):
+    """The background music, (2, n) floats in [-1, 1]."""
+    total = n / SR; t = np.arange(n) / SR
+    t0, bar = _bars(); beat = bar / 4
+    segs = _segments(total)
+    rng = np.random.default_rng(11)
+    pad, keys, bass, drums, bells = (np.zeros((2, n)) for _ in range(5))
+
+    # pad: every pitch is one continuous voice, faded up while a chord holds it, so a shared note never restarts
+    for p in sorted({p for _, _, c in segs for p in CHORDS[c][0].split()}, key=hz):
+        env = np.zeros(n)
+        for s, e, c in segs:
+            if p in CHORDS[c][0].split():
+                i0, i1 = int(s * SR), min(n, int((e + 0.45) * SR))
+                tt = t[i0:i1]
+                env[i0:i1] += _ramp((tt - s) / (0.8 if s == 0 else 0.3)) * (1 - _ramp((tt - e) / 0.45))
+        env = np.minimum(env, 1); nz = np.nonzero(env)[0]; i0, i1 = nz[0], nz[-1] + 1
+        f = hz(p)
+        for ch, cents in enumerate(((-9, 2, 10), (-11, -2, 8))):   # three detuned voices a side: a slow chorus
+            for j, c in enumerate(cents):
+                pad[ch, i0:i1] += env[i0:i1] * _osc(_wavetable(f, 2500, int(f) + 7 * ch + j), f * 2 ** (c / 1200), t[i0:i1]) / 3
+    pad *= 1 + 0.08 * np.sin(2 * np.pi * 0.17 * t)
+
+    kicks = []
+    for b in range(len(PROG) - 1):
+        s = t0 + b * bar
+        # the arpeggio, in eighths, ping-ponging a little
+        for k in range(8):
+            tt = s + k * bar / 8; c = _chord_at(segs, tt)
+            vel = ARP_VEL[k] * (0.8 if b < GROOVE else 0.9 if b < LIFT else 1.0) * (1 + rng.normal(0, 0.05))
+            _place(keys, _epiano(hz(CHORDS[c][2].split()[ARP[k]]), vel), tt + rng.normal(0, 0.004), 0.3 if k % 2 else -0.3)
+        # bass: whole notes, then a gentle pattern once the drums are in
+        pat = [(0, 3.85)] if b < GROOVE else [(0, 1.45), (1.5, 0.45), (2, 1.45), (3.5, 0.45)]
+        for at, d in pat:
+            _place(bass, _bass(hz(CHORDS[_chord_at(segs, s + at * beat)][1]), d * beat, 0.62 if b < GROOVE else 0.8), s + at * beat)
+        # drums: the kick on 1 and 3 (every beat in the lift), hats on the off-beats, a shaker in sixteenths in the lift;
+        # the last half-bar before the end card holds the kick back
+        if b == 0:
+            kicks.append((s, 0.55))
+        if b >= GROOVE:
+            for q in ((0, 1, 2, 3) if b >= LIFT else (0, 2)):
+                if not (b == len(PROG) - 2 and q >= 2):
+                    kicks.append((s + q * beat, (1.0, 0.7, 0.9, 0.7)[q]))
+            for q in range(4):
+                _place(drums, 0.32 * _hat(1.0, 100 + b * 4 + q), s + (q + 0.5) * beat + rng.normal(0, 0.003), 0.25)
+            if b >= LIFT:
+                for q in range(4):
+                    for h in (0.25, 0.75):
+                        _place(drums, 0.12 * _hat(1.0, 300 + b * 8 + q * 2 + int(h * 4), 0.04, 0.006), s + (q + h) * beat, -0.3)
+        # bells in the lift: the tenth on beat 1, the twelfth on beat 3
+        if b >= LIFT:
+            for q, k in ((0, 3), (2, 4)):
+                _place(bells, _bell(hz(CHORDS[_chord_at(segs, s + q * beat)][2].split()[k]), 0.5), s + q * beat, 0.2 if q else -0.2)
+    # under the hook: a low held note per chord
+    for s, e, c in segs[:2]:
+        _place(bass, _bass(hz(CHORDS[c][1]), e - s, 0.4, attack=0.4), s)
+    # the end card: the tonic, the kick, a quick bell arpeggio, all left to ring out
+    s = t0 + (len(PROG) - 1) * bar
+    kicks.append((s, 0.85))
+    _place(bass, _bass(hz("D2"), total - s, 0.8), s)
+    for k, p in enumerate(("D5", "F#5", "A5", "D6")):
+        _place(bells, _bell(hz(p), 0.55 - 0.05 * k), s + 0.07 * k, (-0.3, -0.1, 0.1, 0.3)[k])
+    for tk, vel in kicks:
+        _place(drums, _kick(vel), tk)
+    # into the first bar: a reversed room on the first bar's chord, swelling up to its downbeat
+    dry = np.zeros((2, int(1.8 * SR)))
+    for p in CHORDS["D"][2].split()[2:]:
+        _place(dry, _bell(hz(p), 0.5), 0.0)
+    sw = _reverb(dry, _ir(2.0, 0.0, 5))[:, ::-1] * _ramp(np.arange(dry.shape[1]) / (0.6 * SR))
+    swell = np.zeros((2, n)); i = int(round(t0 * SR)) - sw.shape[1]
+    swell[:, max(0, i):i + sw.shape[1]] = sw[:, max(0, -i):]
+
+    # the kick ducks the pad, the keys and the bass a little
+    duck = np.ones(n)
+    for tk, vel in kicks:
+        i = int(tk * SR); m = min(n - i, int(0.5 * SR))
+        duck[i:i + m] = np.minimum(duck[i:i + m], 1 - 0.22 * vel * np.exp(-np.arange(m) / (0.13 * SR)))
+    pad *= duck; keys *= duck; bass *= duck
+
+    ir = _ir()
+    mix = 0.17 * pad + 0.3 * keys + 0.3 * bass + 0.42 * drums + 0.24 * bells + 0.18 * swell
+    mix += _reverb(0.17 * 0.3 * pad + 0.3 * 0.45 * keys + 0.24 * 0.6 * bells + 0.42 * 0.06 * drums, ir)
+    # no rumble below 30 Hz; fade in over the first moment and out over the last 1.5 s (the video loops)
+    F = np.fft.rfft(mix, axis=1); fr = np.fft.rfftfreq(n, 1 / SR); F *= (fr / 30) ** 4 / (1 + (fr / 30) ** 4)
+    mix = np.fft.irfft(F, n, axis=1)
+    mix *= _ramp(t / 0.05) * (1 - _ramp((t - (total - 1.5)) / 1.5))
+    mix /= np.abs(mix).max()
+    return np.tanh(mix) / np.tanh(1.0)     # a gentle limit on the peaks
+
+
+def load_track(path, n):
+    """The track at `path` as (2, n) floats: decoded by ffmpeg, looped (with a 1 s crossfade) or trimmed to n samples,
+    faded in over 0.5 s and out over the last 2 s."""
+    raw = subprocess.run(["ffmpeg", "-v", "error", "-i", path, "-vn", "-f", "f32le", "-ac", "2", "-ar", str(SR), "-"],
+                         capture_output=True, check=True).stdout
+    x = np.frombuffer(raw, "<f4").reshape(-1, 2).T.astype(float)
+    xf = int(1.0 * SR)
+    if x.shape[1] <= 2 * xf:
+        raise SystemExit(f"{path}: too short to loop")
+    out = x
+    while out.shape[1] < n:
+        w = _ramp(np.arange(xf) / xf)
+        out = np.concatenate([out[:, :-xf], out[:, -xf:] * (1 - w) + x[:, :xf] * w, x[:, xf:]], axis=1)
+    out = out[:, :n]; t = np.arange(n) / SR
+    return out * _ramp(t / 0.5) * (1 - _ramp((t - (n / SR - 2.0)) / 2.0))
+
+
+def render_audio(path, total, music=None, sfx=False):
+    """The soundtrack as a 16-bit stereo WAV of exactly `total` seconds: the synthesised score, or the track at `music`;
+    with sfx, the old event sounds under it (their peaks 10 dB below the music's)."""
+    n = int(round(total * SR))
+    out = load_track(music, n) if music else render_score(n)
+    out = out / max(1e-9, np.abs(out).max())
+    if sfx:
+        fx = np.zeros(n)
+        for t, x in audio_events():
+            i = int(t * SR)
+            if 0 <= i < n:
+                fx[i:i + len(x)] += x[:n - i]
+        out = out + 0.32 * fx / max(1e-9, np.abs(fx).max())
+    out *= 0.89 / max(1e-9, np.abs(out).max())   # peak at -1 dBFS; the loudness is set when it is muxed
     import wave
     with wave.open(path, "wb") as w:
-        w.setnchannels(1); w.setsampwidth(2); w.setframerate(SR); w.writeframes(pcm)
+        w.setnchannels(2); w.setsampwidth(2); w.setframerate(SR)
+        w.writeframes((out.T * 32767).astype("<i2").tobytes())
 
 
-def render_video(out, audio=True):
-    total = sum(int(round(d * FPS)) for _, d, _, _ in SCENES) / FPS
+def _loudnorm(wav):
+    """The ffmpeg filter that sets the WAV to LUFS (true peak at most -1.5 dBTP): measured in a first pass, so the gain
+    is one constant and the music's own dynamics are kept."""
+    base = f"loudnorm=I={LUFS}:TP=-1.5:LRA=20"
+    r = subprocess.run(["ffmpeg", "-hide_banner", "-nostats", "-i", wav, "-af", base + ":print_format=json", "-f", "null", "-"],
+                       capture_output=True, text=True, check=True)
+    m = json.loads(r.stderr[r.stderr.rindex("{"):r.stderr.rindex("}") + 1])
+    return (f"{base}:measured_I={m['input_i']}:measured_TP={m['input_tp']}:measured_LRA={m['input_lra']}"
+            f":measured_thresh={m['input_thresh']}:offset={m['target_offset']}:linear=true")
+
+
+def _audio_args(wav):
+    return ["-af", _loudnorm(wav), "-ar", str(SR), "-c:a", "aac", "-b:a", "160k"]
+
+
+def render_video(out, audio=True, music=None, sfx=False):
+    total = _scene_starts()[1]
     wav = out + ".wav"
     if audio:
-        render_audio(wav, total)
+        render_audio(wav, total, music, sfx)
     cmd = ["ffmpeg", "-y", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{H}", "-r", str(FPS), "-i", "-"]
-    cmd += ["-i", wav, "-map", "0:v", "-map", "1:a", "-c:a", "aac", "-b:a", "160k", "-shortest"] if audio else []
+    cmd += ["-i", wav, "-map", "0:v", "-map", "1:a"] + _audio_args(wav) + ["-shortest"] if audio else []
     cmd += ["-c:v", "libx264", "-preset", "slow", "-crf", "20", "-pix_fmt", "yuv420p", "-movflags", "+faststart", out]
     ff = subprocess.Popen(cmd, stdin=subprocess.PIPE)
     n = 0
@@ -1239,6 +1481,33 @@ def render_video(out, audio=True):
     if audio:
         os.remove(wav)
     print("frames", n, "seconds", round(n / FPS, 1), "->", out, os.path.getsize(out) // 1024, "KB")
+    render_poster(out)
+
+
+def render_soundtrack(out, music=None, sfx=False):
+    """Replace only the soundtrack of an existing render, keeping its frames: seconds instead of minutes."""
+    if not os.path.exists(out):
+        raise SystemExit(f"{out}: no render to put the soundtrack on; render the video first")
+    total = _scene_starts()[1]
+    wav, tmp = out + ".wav", out + ".tmp.mp4"
+    render_audio(wav, total, music, sfx)
+    subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", out, "-i", wav, "-map", "0:v", "-map", "1:a", "-c:v", "copy"]
+                   + _audio_args(wav) + ["-shortest", "-movflags", "+faststart", tmp], check=True)
+    os.replace(tmp, out); os.remove(wav)
+    print("soundtrack ->", out, os.path.getsize(out) // 1024, "KB")
+
+
+def render_poster(out):
+    """The poster beside the video (NAME_poster.webp): the end of the search scene, where every imagined plan and dead end
+    is in view above the solved real board. For the site's own teaser it is also the share image (og:image), as a JPEG."""
+    im = frame(sc_search, SEARCH_DUR - 0.6, SEARCH_DUR, False, True)
+    poster = os.path.splitext(out)[0] + "_poster.webp"
+    im.save(poster, quality=85, method=6)
+    print("poster ->", poster)
+    if os.path.abspath(out) == os.path.abspath(OUT):
+        og = f"{SITE}/images/agima_og.jpg"
+        im.save(og, quality=88, optimize=True, progressive=True)
+        print("share image ->", og)
 
 
 def render_stills(outdir):
@@ -1309,27 +1578,26 @@ def on_white():
 
 
 def panel(v, box, a, r=26):
-    if a <= 0:
-        return
-    dy = 14 * (1 - a)
-    v.rrect((box[0], box[1] + dy, box[2], box[3] + dy), r, fill=fade(WHITE, a))
+    """Nothing: the clips' rows once sat on white cards; they are now set straight on the white ground."""
+    return
 
 
 def head2(v, x, y, title, col, sub, a, size=30):
-    """A bold title, with an optional muted remark after it, on one line."""
+    """A title in ink, with an optional muted remark after it, on one line (col is ignored: the boards' outlines carry
+    the outcome colours)."""
     if a <= 0:
         return
-    f = inter(size * Z, b"Bold")
-    v.text((x, y), title, f, fade(col, a), "ls")
+    f = face(size * Z, b"Bold")
+    v.text((x, y), title, f, fade(INK, a), "ls")
     if sub:
-        v.text((x + v.tlen(title + "  ", f), y), sub, inter(int(size * 0.72) * Z), fade(MUTED, a), "ls")
+        v.text((x + v.tlen(title + "  ", f), y), sub, face(int(size * 0.72) * Z), fade(MUTED, a), "ls")
 
 
 def cpill(v, cx, cy, label, col, ok, a, size=20):
-    """A filled pill centred on (cx, cy)."""
+    """An outcome label (check or cross, then the word) centred on (cx, cy)."""
     if a <= 0:
         return
-    w = v.tlen(label, inter(size * Z, b"SemiBold")) + 30 + (0 if ok is None else 22)
+    w = v.tlen(label, face(size * Z, b"SemiBold")) + (0 if ok is None else size + 4)
     v.pill(cx - w / 2, cy, label, col, ok, a, size=size)
 
 
@@ -1348,16 +1616,17 @@ def move_tag(v, x, y, moves, t, t0, step, col, scale, until=None):
 
 
 def rewind_pill(v, x, y, a, s=1.0):
-    """rewind_tag, scaled by s."""
+    """'rewind' after a double back-arrow, centred on (x, y), in ink on a small flat white tag; scaled by s."""
     if a <= 0:
         return
-    f = inter(int(15 * Z * s), b"Bold"); h = 30 * s
-    w = (14 + 22 + 6 + 14) * s + v.tlen("rewind", f)
+    f = face(int(16 * Z * s), b"SemiBold")
+    w = (16 + 6) * s + v.tlen("rewind", f)
     x0 = x - w / 2
-    v.rrect((x0, y - h / 2, x0 + w, y + h / 2), h / 2, fill=fade(INK, a), outline=fade(WHITE, a), width=2)
-    for dx in (0, 10):
-        v.head(x0 + (16 + dx) * s, y, fade(WHITE, a), (-1, 0), 7 * s)
-    v.text((x0 + (14 + 22 + 6) * s, y + 0.5), "rewind", f, fade(WHITE, a), "lm")
+    col = fade(INK, a)
+    tag_ground(v, (x0 - 5 * s, y - 11 * s, x0 + w + 5 * s, y + 11 * s), a)
+    for dx in (0, 8):
+        v.head(x0 + (6 + dx) * s, y, col, (-1, 0), 6 * s)
+    v.text((x0 + (16 + 6) * s, y + 0.5), "rewind", f, col, "lm")
 
 
 def small_arrow(v, a, b, col, al=1.0, dashed=True):
@@ -1596,25 +1865,24 @@ def _partial(pts, f):
 
 
 def _fk_tag(v, x, y, move, col, pa):
-    action_tag(v, x, y, move, col, ease_out(pa), pop_r(pa, 16 * 1.3) / 16)
+    action_tag(v, x, y, move, col, ease_out(pa), pop_r(pa, 16 * 1.5) / 16)
 
 
 def sc_clip_fork(v, t, dur):
-    pa_, pb_ = ease_out(prog(t, 0.0, 0.4)), ease_out(prog(t, 0.1, 0.4))
+    pa_ = pb_ = la = 1.0   # panels and legend are there from the first frame, so the clip plays at once
     panel(v, FK_PANELS[0], pa_); panel(v, FK_PANELS[1], pb_)
-    la = ease_out(prog(t, 0.05, 0.4))
     # legend, above the panels on the right
     x = 1220
     for lab, col, dashed in (("acted", GREEN, False), ("dead end", RED, True), ("imagined", ACCENT, True)):
-        fl = inter(16 * Z, b"SemiBold")
+        fl = face(21 * Z)
         x -= v.tlen(lab, fl)
         v.text((x, 47), lab, fl, fade(MUTED, la), "lm")
-        x -= 30
+        x -= 34
         if dashed:
-            v.dashed_rect((x, 39, x + 20, 55), 5, fade(col, la), on=4, off=3)
+            v.dashed_rect((x, 37, x + 24, 57), 5, fade(col, la), on=4, off=3)
         else:
-            v.rrect((x, 39, x + 20, 55), 5, outline=fade(col, la), width=3)
-        x -= 26
+            v.rrect((x, 37, x + 24, 57), 5, outline=fade(col, la), width=3)
+        x -= 30
     with on_white():
         _fork_marks(v, t, pa_, pb_)
 
@@ -1622,7 +1890,7 @@ def sc_clip_fork(v, t, dur):
 def _fork_marks(v, t, pa_, pb_):
     w, h = FK_W, FK_H
     # ---- before RL: no branch at this fork; it takes the risky push for real, and the puzzle jams
-    head2(v, 68, 122, "Before RL", RED, "no branch at this fork", pa_, size=26)
+    head2(v, 68, 118, "Before RL", RED, "no branch at this fork", pa_, size=32)
     bcard(v, _fk(FORK_SOL[0]), FK_X[0], FK_YA, w, h, pa_, "real")
     ta = FK["a_go"]; jam = ta + 0.1 + FK["a_push"]
     a0, a1 = (FK_X[0] + w / 2 + 8, FK_YA), (FK_X[1] - w / 2 - 8, FK_YA)
@@ -1637,16 +1905,16 @@ def _fork_marks(v, t, pa_, pb_):
         jam_ring(v, *_cell(FK_X[1] + jx, FK_YA, w, h, FK_ROWS, next(iter(FORK_WRONG[1][1] - FORK_WRONG[0][1]))), w / 8,
                  prog(t, jam, 0.5))
         v.stamp(FK_X[1] + w / 2 + jx, FK_YA - h / 2, False, prog(t, jam + 0.1, 0.3), r=17)
-        cpill(v, FK_X[2], FK_YA, "deadlock", RED, False, ease_out(prog(t, jam + 0.2, 0.3)), 24)
+        cpill(v, FK_X[2], FK_YA, "deadlock", RED, False, ease_out(prog(t, jam + 0.2, 0.3)), 30)
 
     # ---- after RL: it branches at the fork first
-    head2(v, 68, 356, "After RL", GREEN, "branches at the fork first", pb_, size=26)
+    head2(v, 68, 352, "After RL", GREEN, "branches at the fork first", pb_, size=32)
     mc = clamp((t - FK["act"]) / (FK_STEP * (len(FORK_SOL) - 1))) * (len(FORK_SOL) - 1)   # moves acted so far
     acting = t >= FK["act"]
     real_b = (FK_X[0], FK_YB)
     # the real board stays at the fork; once the plan works it is acted on from here (solid green)
     bcard(v, _fk(FORK_SOL[0]), real_b[0], real_b[1], w, h, pb_, "done" if acting else "real")
-    v.pill(real_b[0] - w / 2, real_b[1] - h / 2 - 22, "real board", INK, None, pb_, size=15)
+    v.pill(real_b[0] - w / 2, real_b[1] - h / 2 - 24, "real board", MUTED, None, pb_, size=20)
     # the risky branch: imagined, found dead, rewound
     die = ease_out(prog(t, FK["die"], 0.3)); rwd = ease_out(prog(t, FK["rw1"], 0.3))
     r0, r1 = (real_b[0] + w / 2 + 8, FK_YB - 22), (FK_X[1] - w / 2 - 8, FK_YR)
@@ -1686,7 +1954,7 @@ def _fork_marks(v, t, pa_, pb_):
         p = prog(t, ta + ACT_LAG, POP_F)
         bcard(v, _fk(FORK_SOL[si]), FK_X[k + 1], FK_YS, w, h, ease_out(p), "done" if done else "imag", 0.85 + 0.15 * back_out(p))
     v.stamp(FK_X[3] + w / 2, FK_YS - h / 2, True, prog(t, FK["s_ok"], 0.3), r=17)
-    cpill(v, FK_X[3], FK_YS - h / 2 - 34, "solved", GREEN, True, ease_out(prog(t, FK["act1"] + 0.1, 0.3)), 24)
+    cpill(v, FK_X[3], FK_YS - h / 2 - 36, "solved", GREEN, True, ease_out(prog(t, FK["act1"] + 0.1, 0.3)), 30)
     # the risky push's action tag
     pa = prog(t, FK["b_go"], POP_A)
     if pa > 0:
@@ -1699,7 +1967,7 @@ def _fork_marks(v, t, pa_, pb_):
         x, y = _along(path, ease_io(rw))
         ra = min(ease_out(rw / 0.15), ease_out((1 - rw) / 0.2))
         glow_dot(v, x, y, 16, INK, 0.5 * ra)
-        rewind_pill(v, x, y - 40, ra, 1.0)
+        rewind_pill(v, x, y - 40, ra, 1.3)
 
 
 CLIPS = {  # name: (scene, duration in s, poster time in s, what it shows)
@@ -1722,7 +1990,7 @@ def render_clip(name, out=None, crf=25):
     ff = subprocess.Popen(cmd, stdin=subprocess.PIPE)
     n = int(round(dur * FPS))
     for i in range(n):
-        ff.stdin.write(frame(fn, i / FPS, dur).tobytes())
+        ff.stdin.write(frame(fn, i / FPS, dur, False, True).tobytes())   # no fade-in: frame 0 is content
     ff.stdin.close(); ff.wait()
     poster = os.path.splitext(out)[0] + ".webp"
     frame(fn, t_poster, dur).save(poster, quality=85, method=6)
@@ -1744,9 +2012,17 @@ if __name__ == "__main__":
     ap.add_argument("-o", "--out", default=None, help="output .mp4 (default: the site's assets/video/agima_teaser_v3.mp4, "
                                                       "or assets/video/NAME.mp4 with --clip)")
     ap.add_argument("--stills", metavar="DIR", help="save preview stills of every scene (or of the clip) to DIR instead of rendering")
-    ap.add_argument("--no-audio", action="store_true", help="render without the sound effects")
+    ap.add_argument("--no-audio", action="store_true", help="render without a soundtrack (no music)")
+    ap.add_argument("--music", metavar="PATH", help="background music to use instead of the built-in synthesised score: any "
+                                                    "audio file ffmpeg reads, looped or trimmed to the video and faded in "
+                                                    "and out (credit it on the page if its licence asks for that)")
+    ap.add_argument("--sfx", action="store_true", help="also mix the old event sounds (blips, knocks, swooshes, dings) in, "
+                                                       "quietly, under the music")
+    ap.add_argument("--audio-only", action="store_true", help="replace only the soundtrack of an existing render (the "
+                                                              "site's teaser, or -o), keeping its frames")
     ap.add_argument("--clip", metavar="NAME", help="render one silent clip for the page (see --list-clips), or 'all'")
     ap.add_argument("--list-clips", action="store_true", help="list the clips --clip can render")
+    ap.add_argument("--poster", action="store_true", help="write only the teaser's poster (and, for the site's teaser, its share image)")
     ap.add_argument("--crf", type=int, default=25, help="x264 quality for --clip (default 25)")
     args = ap.parse_args()
     if args.list_clips:
@@ -1763,5 +2039,9 @@ if __name__ == "__main__":
                 render_clip(nm, None if args.clip == "all" else args.out, args.crf)
     elif args.stills:
         render_stills(args.stills)
+    elif args.poster:
+        render_poster(args.out or OUT)
+    elif args.audio_only:
+        render_soundtrack(args.out or OUT, args.music, args.sfx)
     else:
-        render_video(args.out or OUT, audio=not args.no_audio)
+        render_video(args.out or OUT, audio=not args.no_audio, music=args.music, sfx=args.sfx)

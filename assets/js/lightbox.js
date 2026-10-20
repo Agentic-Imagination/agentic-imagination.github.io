@@ -7,8 +7,8 @@
      targets: a.zoom (paper figures linking to their full-size file), .fig5-full, [data-lightbox] (space-
      separated group names, set by figures.js on the Fig. 5 boards), the environment GIFs and the rollout
      viewer's canvases (a snapshot of the frame on screen). The trap animations are left alone.
-   Figure 1: three hotspot buttons over panels (a), (b), (c). One highlights its panel (main.js's highlight
-   box) and writes a one-line caption under the figure; (b) and (c) also select the matching format cards,
+   Figure 1: three hotspot buttons over panels (a), (b), (c) (no hover labels: the figure prints its own panel
+   names). One highlights its panel (main.js's highlight box) and writes a one-line caption under the figure; (b) and (c) also select the matching format cards,
    and a card click updates the caption. A corner button opens the figure in the lightbox.
    Progressive enhancement: without JavaScript the figure links open the full-size files. Plain ES5. */
 (function () {
@@ -22,10 +22,10 @@
   var IMG_LINK = "a[href$='.webp'], a[href$='.png'], a[href$='.jpg'], a[href$='.jpeg'], a[href$='.gif']";
   // captions for paper figures that are linked without an image on the page
   var KNOWN = {
-    "fig3_forward_vs_linear": "Fig. 3 · The Pacman route-order trap. (a) Linear rollout eats the nearer pellet first and is caught by the ghost. " +
+    "fig3_forward_vs_linear": "Paper Figure 3. The Pacman route-order trap. (a) Linear rollout eats the nearer pellet first and is caught by the ghost. " +
       "(b) Forward thinking imagines both orders and commits to up-first, the one that eats every pellet.",
-    "fig4_rl_curves": "Fig. 4 · Training reward and held-out accuracy on the Deadlock and Structural Fork sets over 200 RL steps; solid = 3 boxes, dashed = 4 boxes.",
-    "fig6_adaptive_reasoning": "Fig. 6 · Failure-triggered lookahead, unified-format share, branches per episode and critical-step alignment over RL steps."
+    "fig4_rl_curves": "Paper Figure 4. Training reward and held-out accuracy on the Deadlock and Structural Fork sets over 200 RL steps; solid lines 3 boxes, dashed 4 boxes.",
+    "fig6_adaptive_reasoning": "Paper Figure 6. Failure-triggered lookahead, unified-format share, branches per episode and critical-step alignment over RL steps."
   };
   function known(href) { var m = /([^\/]+)\.(webp|png|jpe?g|gif)$/i.exec(href || ""); return m && KNOWN[m[1]]; }
   var ICON = {
@@ -63,21 +63,21 @@
   /* ================= items: what a target shows in the lightbox ================= */
   // item = {src, alt, caption, pixel, from (the element it came from)}
   function figCaption(fig) {
-    var cap = fig && fig.querySelector("figcaption, .fig-cap");
+    var cap = fig && fig.querySelector(".fig-cap, figcaption");
     if (!cap) return "";
     var c = cap.cloneNode(true);
-    arr(c.querySelectorAll("a, .visually-hidden")).forEach(function (a) { a.parentNode.removeChild(a); });
+    arr(c.querySelectorAll("a, button, .visually-hidden")).forEach(function (a) { a.parentNode.removeChild(a); });
     return text(c);
   }
   function zoomItem(a) {
     var img = a.querySelector("img"), fig = a.closest("figure");
-    var cap = figCaption(fig);
-    if (!cap && fig && fig.classList.contains("imagine-figure")) cap = "Fig. 1 · " + (img ? img.alt : "");
+    // Figure 1's caption line changes with the panel picked; the enlarged figure gets its full caption
+    var cap = fig && fig.classList.contains("imagine-figure") ? "Figure 1. " + (img ? img.alt : "") : figCaption(fig);
     return {src: a.getAttribute("href"), alt: img ? img.alt : "", caption: cap || (img ? img.alt : ""), from: a};
   }
   function fig5FullItem(a) {
     var fig = a.closest("figure"), img = fig && fig.querySelector(".fig5-static img");
-    return {src: a.getAttribute("href"), alt: img ? img.alt : "Paper Figure 5", caption: "Fig. 5 · " + (img ? img.alt.replace(/^Paper Figure 5,\s*/, "") : ""), from: a};
+    return {src: a.getAttribute("href"), alt: img ? img.alt : "Paper Figure 5", caption: "Figure 7. " + (img ? img.alt.replace(/^Paper Figure 5,\s*/, "") : ""), from: a};
   }
   function imgItem(n) {
     var img = n.tagName === "IMG" ? n : n.querySelector("img");
@@ -86,10 +86,10 @@
     return {src: src, alt: img.alt, caption: img.getAttribute("data-lb-caption") || img.alt, pixel: isPixel(src), from: n};
   }
   function envItem(img) {
-    var card = img.closest(".env-card"), fig = img.closest("figure");
+    var card = img.closest(".env"), fig = img.closest("figure");
     var name = card ? text(card.querySelector("h3")) : "";
     var src = img.getAttribute("src");
-    return {src: src, alt: img.alt, caption: [name, text(fig && fig.querySelector("figcaption")), /ground-truth/.test(img.alt) ? "ground-truth rollout" : ""].filter(Boolean).join(" · "),
+    return {src: src, alt: img.alt, caption: [name, text(fig && fig.querySelector("figcaption")), /ground-truth/.test(img.alt) ? "ground-truth rollout" : ""].filter(Boolean).join(", "),
       pixel: isPixel(src), from: img};
   }
   function kvItem(c) {
@@ -99,9 +99,9 @@
     var tag = panel ? text(panel.querySelector(".kv-tag")) : "";
     var src = "";
     try { src = c.toDataURL("image/png"); } catch (e) { src = ""; }
-    var cap = text(kv && kv.querySelector(".kv-cap"));
+    var cap = text(kv && kv.querySelector(".kv-status"));
     return {src: src, alt: c.getAttribute("aria-label") || who, pixel: !/pusht/i.test(picked),
-      caption: [who === "Agima" ? "Agima's frame (" + tag + ")" : "Real environment", picked, cap].filter(Boolean).join(" · "), from: c};
+      caption: [who === "Agima" ? "Agima's frame (" + tag + ")" : "Real environment", picked].filter(Boolean).join(", ") + (cap ? ". " + cap : ""), from: c};
   }
 
   // the group a target belongs to, and its index in it
@@ -466,12 +466,14 @@
     var hl = diagram.querySelector(".team-highlight-primary");
     var cards = arr(document.querySelectorAll("[data-format-step]"));
     var layer = el("div", {class: "f1-hot", role: "group", "aria-label": "Figure 1 panels"});
-    var cap = el("p", {class: "f1-cap", "aria-live": "polite"});
+    // the caption under the figure (in the HTML; made here if it is missing) describes the panel picked
+    var tools = figure && figure.querySelector(".figure-tools");
+    var cap = (tools && tools.querySelector(".f1-cap")) || el("p", {class: "f1-cap"});
+    cap.setAttribute("aria-live", "polite");
     var sel = null;
     var spots = PANELS.map(function (p) {
       var b = el("button", {type: "button", class: "f1-spot", "aria-pressed": "false", "aria-label": "Panel (" + p.id + "): " + p.name,
         style: "left:" + p.box.left + ";top:" + p.box.top + ";width:" + p.box.width + ";height:" + p.box.height});
-      b.appendChild(el("span", {class: "f1-chip", "aria-hidden": "true", text: "(" + p.id + ") " + p.name}));
       b.addEventListener("click", function () { pick(p.id, true); });
       layer.appendChild(b);
       return b;
@@ -480,29 +482,27 @@
     var big = el("button", {type: "button", class: "f1-enlarge", "aria-label": "Enlarge Figure 1", html: ICON.zoom + "<span>Enlarge</span>"});
     big.addEventListener("click", function () {
       if (link) openFrom(link, big);
-      else open([{src: img.currentSrc || img.src, alt: img.alt, caption: "Fig. 1 · " + img.alt}], 0, big);
+      else open([{src: img.currentSrc || img.src, alt: img.alt, caption: "Figure 1. " + img.alt}], 0, big);
     });
     diagram.appendChild(layer);
     diagram.appendChild(big);
     diagram.classList.add("has-f1-hot");
     if (link) link.setAttribute("tabindex", "-1");      // the Enlarge button replaces the link for the keyboard
 
-    var tools = figure && figure.querySelector(".figure-tools");
-    if (tools) { tools.insertBefore(cap, tools.firstChild); tools.classList.add("has-f1-cap"); tools.hidden = false; }
-    else diagram.parentNode.insertBefore(cap, diagram.nextSibling);
+    if (!cap.parentNode) {
+      if (tools) { tools.insertBefore(cap, tools.firstChild); tools.hidden = false; }
+      else diagram.parentNode.insertBefore(cap, diagram.nextSibling);
+    }
     idle();
 
     function idle() {
       cap.classList.remove("is-on");
-      cap.innerHTML = "<span class=\"f1-cap-hint\">Click a panel: (a) acting, (b) imagining, (c) planning.</span>";
+      cap.innerHTML = "<b>Figure 1.</b> Planning with agentic imagination: (a) feedback after acting, (b) feedback through imagination with Agima, " +
+        "(c) counterfactual branching and forward thinking in Sokoban. Select a panel for its description.";
     }
     function caption(p) {
       cap.classList.add("is-on");
-      cap.innerHTML = "<b>(" + p.id + ") " + p.name + ".</b> " + p.cap;
-    }
-    function autoOff() {
-      var t = figure && figure.querySelector(".auto-toggle");
-      if (t && t.getAttribute("aria-pressed") === "true") t.click();
+      cap.innerHTML = "<b>Figure 1(" + p.id + ").</b> " + p.name + ". " + p.cap;
     }
     function setCards(names) {
       cards.forEach(function (c) {
@@ -519,7 +519,6 @@
       spots.forEach(function (b, i) { b.setAttribute("aria-pressed", String(PANELS[i].id === id)); });
       caption(p);
       if (!fromSpot) return;
-      autoOff();
       // (b) is exactly the linear-rollout card's region: let main.js select that card; (a) and (c) move the
       // highlight box here and mark the cards that belong to the panel
       var single = p.card && p.card.length === 1 && cards.filter(function (c) { return c.getAttribute("data-format-step") === p.card[0]; })[0];
@@ -540,15 +539,6 @@
         var p = PANELS.filter(function (q) { return q.card && q.card.indexOf(step) >= 0; })[0];
         if (p) pick(p.id, false);
       });
-    });
-    // switching the Auto-play highlight back on clears the panel choice
-    if (figure) figure.addEventListener("click", function (e) {
-      var t = e.target.closest && e.target.closest(".auto-toggle");
-      if (t && t.getAttribute("aria-pressed") === "true" && sel) {
-        sel = null;
-        spots.forEach(function (b) { b.setAttribute("aria-pressed", "false"); });
-        idle();
-      }
     });
   }
 

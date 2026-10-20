@@ -42,7 +42,7 @@
   // (the hero series with the largest gain).
   var CHARTS = {
     fig4b: {
-      title: "Deadlock-set accuracy", yLabel: "Accuracy", source: "Figure 4b",
+      panel: "a", title: "Deadlock-set accuracy", yLabel: "Accuracy", source: "Figure 4b",
       domain: [20, 50], ticks: [20, 30, 40, 50], low: {domain: [0, 10], ticks: [0, 10]},
       dec: 0, unit: "%", hero: ["fwd"], gain: {m: "fwd", boxes: 4},
       summary: "Held-out accuracy rises over 200 RL steps for Agima-A7B (Forward), from 25% to 40% on 4-box and from 38% to 45% on 3-box puzzles, and for Agima-A7B; the No Imagine model stays below 10%.",
@@ -56,7 +56,7 @@
       ]
     },
     fig4c: {
-      title: "Fork-set accuracy", yLabel: "Accuracy", source: "Figure 4c",
+      panel: "b", title: "Fork-set accuracy", yLabel: "Accuracy", source: "Figure 4c",
       domain: [20, 50], ticks: [20, 30, 40, 50], low: {domain: [0, 10], ticks: [0, 10]},
       dec: 0, unit: "%", hero: ["br"], gain: {m: "br", boxes: 4},
       summary: "Held-out accuracy rises over 200 RL steps; Agima-A7B (Branching) goes from 22% to 45% on 4-box and from 33% to 50% on 3-box puzzles, passing Agima-A7B; the No Imagine model stays below 5%.",
@@ -70,7 +70,7 @@
       ]
     },
     fig6a: {
-      title: "Failure-triggered lookahead", sub: "Agima-A7B (Forward), deadlock set, episodes with a second plan", source: "Figure 6a",
+      panel: "a", title: "Failure-triggered lookahead", sub: "Agima-A7B (Forward), deadlock set, episodes with a second plan", source: "Figure 6a",
       yLabel: "First plan predicted to fail",
       domain: [25, 100], ticks: [25, 50, 75, 100], dec: 0, unit: "%", gain: {m: "fwd", boxes: 3},
       summary: "Among episodes with a second plan, the share whose first plan was predicted to fail: about 32% (3 boxes) and 55% (4 boxes) at step 0, 100% from step 100 on.",
@@ -80,7 +80,7 @@
       ]
     },
     fig6b: {
-      title: "Unified format", sub: "Agima-A7B (Forward), deadlock set", source: "Figure 6b",
+      panel: "b", title: "Unified format", sub: "Agima-A7B (Forward), deadlock set", source: "Figure 6b",
       yLabel: "Episodes in the unified format",
       domain: [0, 100], ticks: [0, 25, 50, 75, 100], dec: 0, unit: "%", gain: {m: "fwd", boxes: 3},
       summary: "Share of episodes in the unified (hybrid) format: about 5% at step 0, 100% from step 100 on, for 3 and 4 boxes.",
@@ -90,7 +90,7 @@
       ]
     },
     fig6c: {
-      title: "Branches per episode", sub: "Agima-A7B (Branching), fork set", source: "Figure 6c",
+      panel: "a", title: "Branches per episode", sub: "Agima-A7B (Branching), fork set", source: "Figure 6c",
       yLabel: "Mean branches per episode",
       domain: [1.8, 2.5], ticks: [1.8, 2.0, 2.2, 2.4], tickDec: 1, dec: 1, unit: "", gain: {m: "br", boxes: 4},
       summary: "Mean branches per episode rise from about 2.1 to 2.3 (3 boxes) and from 1.9 to 2.2 (4 boxes), peaking at step 150.",
@@ -100,7 +100,7 @@
       ]
     },
     fig6d: {
-      title: "Critical-step alignment", sub: "Agima-A7B (Branching), fork set", source: "Figure 6d",
+      panel: "b", title: "Critical-step alignment", sub: "Agima-A7B (Branching), fork set", source: "Figure 6d",
       yLabel: "P(critical step | branch)",
       domain: [40, 75], ticks: [40, 50, 60, 70], dec: 0, unit: "%", gain: {m: "br", boxes: 4},
       summary: "Share of branches placed at a critical step rises from about 63% to 73% (3 boxes) and from 42% to 56% (4 boxes).",
@@ -117,6 +117,7 @@
     "position:relative;color:var(--rlc-ink);font-family:var(--sans,\"Inter\",system-ui,-apple-system,\"Segoe UI\",Roboto,Arial,sans-serif);line-height:1.4}",
     ".rlc-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}",
     ".rlc-title{margin:0;font-family:var(--serif,Georgia,\"Times New Roman\",serif);font-size:1.3rem;font-weight:600;line-height:1.15}",
+    ".rlc-panel{color:var(--rlc-text2);font-weight:500}",
     ".rlc-sub{margin:3px 0 0;color:var(--rlc-text2);font-size:.78rem;line-height:1.35}",
     ".rlc-legend{display:flex;flex-wrap:wrap;gap:4px 14px;margin:10px 0 8px;padding:0;list-style:none;color:var(--rlc-text2);font-size:.75rem;line-height:1.3}",
     ".rlc-legend li{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}",
@@ -276,7 +277,10 @@
 
     var head = hx("div", "rlc-head", el);
     var htext = hx("div", "rlc-htext", head);
-    hx("p", "rlc-title", htext, cfg.title);
+    // the panel letter the figure caption cites, (a) or (b), before the title
+    var ttl = hx("p", "rlc-title", htext);
+    if (cfg.panel) hx("span", "rlc-panel", ttl, "(" + cfg.panel + ")");
+    ttl.appendChild(document.createTextNode((cfg.panel ? " " : "") + cfg.title));
     if (cfg.sub) hx("p", "rlc-sub", htext, cfg.sub);
     var rb = hx("button", "rlc-replay", head);
     rb.type = "button";

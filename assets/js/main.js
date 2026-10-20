@@ -1,8 +1,8 @@
-/* Agima project page: results tables and charts (with the "real board vs imagined" rollout viewer linked
-   to the K table), the Figure 1 highlight, video playback, plus the page chrome (teaser sound toggle,
-   scroll reveal, section nav / reading progress). The RL charts live in rl-charts.js, Fig. 5 in figures.js,
+/* Agima project page: results tables and charts (with the "real board vs imagined" rollout viewer, Figure 4,
+   linked to the K table), the Figure 1 highlight, video playback, the teaser sound toggle, the BibTeX copy
+   button and the reading-progress bar. The RL charts live in rl-charts.js, Fig. 5 in figures.js,
    the planning-trap animations in traps.js, the lightbox and Fig. 1 hotspots in lightbox.js.
-   All numbers are copied from the paper (Tables 1 and 3). */
+   All numbers are copied from the paper (Tables 1 and 3; Tables 1 and 2 on this page). */
 (function () {
   "use strict";
 
@@ -128,12 +128,6 @@
     set(on, true);
     return b;
   }
-  // true while the pointer is over, or keyboard focus is inside, any of the nodes
-  function isHeld(nodes) {
-    var a = document.activeElement;
-    return nodes.some(function (n) { return n && (n.matches(":hover") || (a && a !== document.body && n.contains(a))); });
-  }
-
   /* ---------- 1. K results: a table (default) or line charts across K, linked to the rollout viewer ---------- */
   var KS = ["1", "3", "5", "10", "inf"];
   var ENV_FILE = ["pacman", "maze2d", "sokoban", "pusht"];   // same order as ENVS
@@ -195,23 +189,23 @@
     var state = {k: "5", env: ENVS.indexOf("Sokoban"), view: "table"};
     var methods = K_RESULTS["5"].map(function (r) { return {name: r[0], type: r[1]}; });
 
-    var controls = el("div", {class: "chart-controls"});
-    controls.appendChild(el("h3", {text: "Success across K"}));
-    var NOTE = {
-      table: "Success on the hard test splits (PushT: far split). Bold = best per column; – = not evaluated. Click a column to compare and play its rollout below.",
-      chart: "Success (%) on the hard test splits (PushT: far split), one line per method. Click a K to play its rollout below."
+    // the caption sits above the table, as in the paper, with the Table / Chart switch at its right
+    var controls = el("div", {class: "chart-controls cap-row"});
+    var CAPTION = {
+      table: "<b>Table 1.</b> Success rate on the hard test splits (PushT: far split) for each <i>K</i>. Bold marks the best result in each column, and a dash means not evaluated. Select a column to play its rollout in Figure&nbsp;4.",
+      chart: "<b>Table 1</b>, drawn as line charts: success rate (%) per method across <i>K</i>. Select a <i>K</i> to play its rollout in Figure&nbsp;4."
     };
+    var note = el("p", {class: "fig-cap", id: "table1-cap", html: CAPTION.table});
+    controls.appendChild(note);
     segmented(controls, "Results view", [["table", "Table"], ["chart", "Chart"]], state.view, function (v) {
       state.view = v; tableBox.hidden = v !== "table"; chart.node.hidden = v !== "chart";
-      note.textContent = NOTE[v];
+      note.innerHTML = CAPTION[v];
       if (v === "chart") chart.draw();
     });
     root.appendChild(controls);
-    var note = el("p", {class: "chart-note kr-note", text: NOTE.table});
-    root.appendChild(note);
 
     /* table: environments x K, methods as rows */
-    var table = el("div", {class: "table-wrap kt-wrap", tabindex: "0", role: "region", "aria-label": "Success across K, table"});
+    var table = el("div", {class: "table-wrap kt-wrap", tabindex: "0", role: "region", "aria-label": "Table 1, success across K"});
     var t = el("table", {class: "data-table kt"});
     t.appendChild(el("caption", {class: "visually-hidden", text: "Success (%) by environment and K. A dash means not evaluated. In the header, the arrow keys move between environments and between K values."}));
     var r1 = el("tr", {}, [el("td", {class: "kt-corner"})]);
@@ -253,8 +247,9 @@
           var td = el("td", {"data-e": String(ei), "data-k": k});
           if (v === null) { td.textContent = "–"; td.className = "is-na"; td.title = "not evaluated"; }
           else {
-            // the number sits in its own box, so results.css can scale it without moving the row
-            td.appendChild(el("span", {class: "kt-n"}, [document.createTextNode(String(v)), el("span", {class: "kt-pct", text: "%"})]));
+            // the number sits in its own box, so results.css can enlarge Agima's in the selected column without
+            // moving the row (data-n keeps the box as wide as the number in bold)
+            td.appendChild(el("span", {class: "kt-n", "data-n": v + "%"}, [document.createTextNode(String(v)), el("span", {class: "kt-pct", text: "%"})]));
             if (v === best[ei + "/" + k]) td.className = "is-best";
           }
           tr.appendChild(td);
@@ -268,21 +263,6 @@
       var td = e.target.closest ? e.target.closest("td[data-k]") : null;
       if (td) pick(+td.getAttribute("data-e"), td.getAttribute("data-k"));
     });
-    // hovering a method row (mouse) sets it against Agima's row: Agima's numbers stand out, the other rows fade
-    var hotRow = null;
-    function setHot(tr) {
-      if (tr === hotRow) return;
-      if (hotRow) hotRow.classList.remove("is-hot");
-      hotRow = tr;
-      if (tr) tr.classList.add("is-hot");
-      t.classList.toggle("is-compare", !!tr);
-    }
-    tb.addEventListener("pointerover", function (e) {
-      if (e.pointerType !== "mouse") return;
-      var tr = e.target.closest ? e.target.closest("tr") : null;
-      if (tr && !tr.classList.contains("group-row")) setHot(tr);   // a group label row keeps the current row
-    });
-    tb.addEventListener("pointerleave", function () { setHot(null); });
     table.appendChild(t);
     // phones show one environment at a time (tabs); wider screens show all four side by side
     var tableBox = el("div", {class: "kt-box"});
@@ -290,6 +270,7 @@
     envTabs.classList.add("kt-tabs");
     tableBox.appendChild(table);
     root.appendChild(tableBox);
+    edgeFade(table);
     var cells = Array.prototype.slice.call(t.querySelectorAll("[data-e]"));
 
     /* chart: success across K, one small line chart per environment */
@@ -370,7 +351,7 @@
           ". Left and right arrow keys pick a K; the table view lists every value."});
       var tip = el("div", {class: "kc-tip", "aria-hidden": "true", hidden: ""});
       var plot = el("div", {class: "kc-plot"}, [svgEl, tip]);
-      var box = el("div", {class: "kc-panel"}, [el("h4", {text: env}), plot]);
+      var box = el("div", {class: "kc-panel"}, [el("p", {class: "kc-title", text: env}), plot]);
       grid.appendChild(box);
       var p = {ei: ei, env: env, vals: vals, svg: svgEl, tip: tip, plot: plot, box: box, hot: -1, g: null};
 
@@ -471,7 +452,7 @@
       p.cross.setAttribute("x1", x); p.cross.setAttribute("x2", x);
       p.cross.setAttribute("visibility", "visible");
       p.tip.innerHTML = "";
-      p.tip.appendChild(el("p", {class: "kc-tip-h", text: p.env + " · K = " + KLABEL[KS[i]]}));
+      p.tip.appendChild(el("p", {class: "kc-tip-h", text: p.env + ", K = " + KLABEL[KS[i]]}));
       series.slice().reverse().forEach(function (meth) {
         var n = series.indexOf(meth), v = p.vals[n][i];
         p.tip.appendChild(el("p", {class: "kc-tip-r" + (meth.type === "ours" ? " is-ours" : "")}, [
@@ -511,20 +492,15 @@
     return box;
   }
 
-  /* ---------- real board vs imagined: Agima's frames next to the real environment, one rollout per env x K ---------- */
+  /* ---------- Figure 4, real board vs imagined: Agima's frames next to the real environment, one rollout per env x K ---------- */
   // Plays the frames of a sprite on two canvases with the GIFs' timing, while on screen (paused with reduced
   // motion). A track below shows every frame (dashed blue = imagined, solid = real observation); click, drag
   // or use the arrow keys on it to step. The sprite loads only when the viewer comes near the screen.
   function rolloutViewer(onPick) {
     var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    var node = el("section", {class: "kv", "aria-labelledby": "kv-title"});
-    var head = el("div", {class: "kv-head"}, [
-      el("div", {}, [el("h4", {id: "kv-title", text: "Real board vs imagined"}),
-                     el("p", {class: "kv-sub", text: "What Agima plans from, next to the real environment, frame by frame."})])
-    ]);
+    var node = el("figure", {class: "kv"});
     var segs = el("div", {class: "kv-segs"});
-    head.appendChild(segs);
-    node.appendChild(head);
+    node.appendChild(el("div", {class: "kv-head"}, [segs]));
     var envSeg = segmented(segs, "Rollout environment", ENVS.map(function (e, i) { return [String(i), e]; }), "", function (v) { onPick(+v, cur.k); });
     var kSeg = segmented(kLabeled(segs), "Rollout K", kOptions(), "", function (v) { onPick(cur.env, v); });
 
@@ -546,14 +522,16 @@
                 '<svg class="ico ico-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z"/></svg>';
     var btn = el("button", {type: "button", class: "kv-play", html: ICONS});
     var track = el("div", {class: "kv-track", role: "slider", tabindex: "0", "aria-label": "Rollout frame", "aria-valuemin": "1"});
-    var cap = el("p", {class: "kv-cap"});
+    var cap = el("p", {class: "kv-status"});
     node.appendChild(el("div", {class: "kv-bar"}, [btn, track]));
     node.appendChild(cap);
-    node.appendChild(el("p", {class: "kv-legend"}, [
-      el("span", {}, [el("i", {class: "lg lg-imag", "aria-hidden": "true"}), document.createTextNode("imagined")]),
-      el("span", {}, [el("i", {class: "lg lg-real", "aria-hidden": "true"}), document.createTextNode("real observation")]),
-      el("span", {class: "kv-kline", html: "Every <strong>K</strong> actions, a real observation replaces the imagined frame."})
-    ]));
+    // the caption names the rollout on show (on phones the environment is picked with Table 1's tabs, further up)
+    var figcap = el("figcaption", {class: "fig-cap"});
+    node.appendChild(figcap);
+    function setCaption() {
+      figcap.innerHTML = "<b>Figure 4.</b> Agima's frames beside the real environment, " + ENVS[cur.env] + " at <i>K</i>&nbsp;=&nbsp;" + KLABEL[cur.k] +
+        ". Every <i>K</i> actions, a real observation <i class=\"lg lg-real\" aria-hidden=\"true\"></i> replaces the <span class=\"nobr\">imagined frame <i class=\"lg lg-imag\" aria-hidden=\"true\"></i>.</span>";
+    }
 
     var cur = {env: -1, k: "", key: "", frames: [], img: null, ready: false};
     var idx = 0, playing = !reduce, visible = false, wanted = false, timer = null, cache = {};
@@ -580,12 +558,12 @@
     }
     function caption(f) {
       var total = cur.frames[cur.frames.length - 1].step;
-      var s = "Step " + f.step + " / " + total + " · ";
-      if (f.start) return s + "real observation (start)";
-      if (f.arrive) return s + "real observation replaces the imagined frame";
-      if (f.real) return s + "real observation after every action";
-      if (f.lost) return s + (cur.k === "inf" ? "imagined" : "imagined, chunk " + f.chunk) + " · the agent is missing from Agima's frame";
-      return s + (cur.k === "inf" ? "imagined, no real observation since the start" : "imagined, chunk " + f.chunk);
+      var s = "Step " + f.step + " of " + total + ": ";
+      if (f.start) return s + "real observation (start).";
+      if (f.arrive) return s + "a real observation replaces the imagined frame.";
+      if (f.real) return s + "real observation after every action.";
+      if (f.lost) return s + (cur.k === "inf" ? "imagined frame" : "imagined frame, chunk " + f.chunk) + ". The agent is missing from Agima's frame.";
+      return s + (cur.k === "inf" ? "imagined frame, no real observation since the start." : "imagined frame, chunk " + f.chunk + ".");
     }
     function paint(c, rect) {
       var ctx = c.getContext && c.getContext("2d");
@@ -671,6 +649,7 @@
       press(envSeg, String(ei)); press(kSeg, k);
       cur.env = ei; cur.k = k;
       cur.key = ENV_FILE[ei] + "_k" + k;
+      setCaption();
       cur.ready = false; cur.img = null;
       [A.canvas, E.canvas].forEach(function (c) { var x = c.getContext && c.getContext("2d"); if (x) x.clearRect(0, 0, c.width, c.height); });
       stage.classList.add("is-loading");
@@ -738,11 +717,11 @@
   /* ---------- 2. reasoning tables ---------- */
   function renderReasoning(root) {
     var state = {task: "sokoban"};
-    var controls = el("div", {class: "chart-controls"});
+    var controls = el("div", {class: "chart-controls cap-row"});
     root.appendChild(controls);
-    controls.appendChild(el("h3", {text: "Success on planning traps"}));
+    controls.appendChild(el("p", {class: "fig-cap", html: "<b>Table 2.</b> Success rate on the planning traps at <i>K</i>&nbsp;=&nbsp;∞ (paper Table&nbsp;3)."}));
     segmented(controls, "Reasoning task", [["sokoban", "Sokoban"], ["pacman", "Pacman"]], state.task, function (v) { state.task = v; draw(); });
-    var wrap = el("div", {class: "table-wrap", tabindex: "0", role: "region", "aria-label": "Success on planning traps table"});
+    var wrap = el("div", {class: "table-wrap", tabindex: "0", role: "region", "aria-label": "Table 2, success on the planning traps"});
     root.appendChild(wrap);
     function draw() {
       var d = REASONING[state.task];
@@ -759,7 +738,7 @@
           [el("td", {text: r[0]})].concat(r[2].map(function (v, ci) {
             var delta = r[1] === "ours" ? v - lin[2][ci] : null;
             var cell = el("td", {class: v === best[ci] ? "is-best" : ""}, [document.createTextNode(v + "%")]);
-            // written as in the paper's Table 3: +8%, +0%, −3%
+            // the change from Agima-A7B in percentage points, written as in the paper's Table 3: +8%, +0%, −3%
             if (delta !== null) cell.appendChild(el("span", {class: "delta " + (delta > 0 ? "up" : delta < 0 ? "down" : "flat"), text: (delta < 0 ? "−" : "+") + Math.abs(delta) + "%"}));
             return cell;
           }))));
@@ -767,12 +746,37 @@
       t.appendChild(tb);
       wrap.innerHTML = ""; wrap.appendChild(t);
       wrap.appendChild(el("p", {class: "table-foot", text: state.task === "sokoban"
-        ? "All models trained on two-box Sokoban and run at K = ∞. Bold = best in column; small numbers = change vs. Agima-A7B in percentage points."
-        : "Route-order traps: collecting the nearer food first leaves no safe way to finish. G = grid size, F = food items. K = ∞. Bold = best in column; small numbers = change vs. Agima-A7B in percentage points."}));
+        ? "All models are trained on two-box Sokoban. Bold marks the best result in each column. The small numbers give the change from Agima-A7B in percentage points."
+        : "Route-order traps: collecting the nearer food first leaves no safe way to finish. G is the grid size and F the number of food items. Bold marks the best result in each column. The small numbers give the change from Agima-A7B in percentage points."}));
+      edgeFade(wrap);
     }
     draw();
   }
 
+
+  // a table wider than its box fades out at the right edge until it is scrolled to the end. Called again after each
+  // redraw. It re-checks when the box resizes, when the table itself resizes (a web font that swaps in late narrows the
+  // table without changing the box) and once the fonts are ready.
+  function edgeFade(wrap) {
+    var sync = wrap._edge;
+    if (!sync) {
+      sync = wrap._edge = function () {
+        var more = wrap.scrollWidth - wrap.clientWidth - wrap.scrollLeft > 2;
+        wrap.classList.toggle("is-clipped", more);
+      };
+      wrap.addEventListener("scroll", sync, {passive: true});
+      if ("ResizeObserver" in window) { wrap._ro = new ResizeObserver(sync); wrap._ro.observe(wrap); }
+      else window.addEventListener("resize", sync);
+      if (document.fonts && document.fonts.ready) document.fonts.ready.then(sync);
+    }
+    var table = wrap.querySelector("table");
+    if (wrap._ro && table !== wrap._table) {   // a redraw replaces the table: watch the new one
+      if (wrap._table) wrap._ro.unobserve(wrap._table);
+      if (table) wrap._ro.observe(table);
+      wrap._table = table;
+    }
+    sync();
+  }
 
   /* ---------- BibTeX copy button ---------- */
   function initCopy() {
@@ -787,7 +791,7 @@
     });
     function select(n) { var r = document.createRange(); r.selectNodeContents(n); var s = getSelection(); s.removeAllRanges(); s.addRange(r); }
   }
-  /* ---------- Figure 1: step through linear rollout / branching / forward thinking ---------- */
+  /* ---------- Figure 1: a click on a Figure 2 format marks its region of Figure 1 ---------- */
   function initImagineAnimation() {
     var diagram = document.querySelector(".team-diagram");
     var hl = document.querySelector(".team-highlight-primary");
@@ -799,13 +803,7 @@
       {name: "branch", box: {left: "0.6%", top: "27.8%", width: "52.6%", height: "53.2%"}},
       {name: "forward", box: {left: "45.2%", top: "27.8%", width: "54.5%", height: "53.2%"}}
     ];
-    var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    var idx = 0, timer = null;
-    // Auto-advance runs while the figure is on screen, unless switched off (or the reader picked a card)
-    // or held (pointer over / keyboard focus in the figure or the cards). Off from the start with reduced motion.
-    var auto = !reduce, visible = !("IntersectionObserver" in window), held = false;
-    var grid = cards[0].parentNode;
-    // Each card's heading becomes a real toggle button, so it is announced as one (pressed = shown in the figure).
+    // Each card's heading becomes a real toggle button, so it is announced as one (pressed = marked in the figure).
     var btns = cards.map(function (c) {
       var h = c.querySelector("h3");
       if (!h) return null;
@@ -815,47 +813,17 @@
       return b;
     });
     function show(i) {
-      idx = i;
       Object.keys(steps[i].box).forEach(function (k) { hl.style[k] = steps[i].box[k]; });
+      hl.classList.remove("is-hidden");
       cards.forEach(function (c, j) {
         var on = c.getAttribute("data-format-step") === steps[i].name;
         c.classList.toggle("is-active", on);
         if (btns[j]) btns[j].setAttribute("aria-pressed", String(on));
       });
+      diagram.classList.add("is-active");
     }
-    function schedule() {
-      clearTimeout(timer);
-      if (auto && visible && !held) timer = setTimeout(function () { show((idx + 1) % steps.length); schedule(); }, 3000);
-    }
-    var toggle = autoToggle("Auto-play the Figure 1 highlight", auto, function (v) {
-      auto = v;
-      if (v) diagram.classList.add("is-active");
-      schedule();
-    });
-    cards.forEach(function (c, i) {
-      // the whole card is clickable; the heading button gives keyboard and screen-reader access
-      c.addEventListener("click", function () {
-        diagram.classList.add("is-active");
-        show(i);
-        toggle.setOn(false);            // the reader's choice stays put
-      });
-    });
-    function recheck() { held = isHeld([diagram, grid]); schedule(); }
-    [diagram, grid].forEach(function (n) {
-      ["mouseenter", "mouseleave", "focusin", "focusout"].forEach(function (ev) {
-        n.addEventListener(ev, function () { setTimeout(recheck, 0); });
-      });
-    });
-    var tools = document.querySelector(".imagine-figure .figure-tools");
-    if (tools) { tools.appendChild(toggle); tools.hidden = false; }
-    show(0);
-    if ("IntersectionObserver" in window) {
-      new IntersectionObserver(function (entries) {
-        visible = entries[0].isIntersecting;
-        if (visible) diagram.classList.add("is-active");
-        schedule();
-      }, {threshold: 0.35}).observe(diagram);
-    } else { diagram.classList.add("is-active"); schedule(); }
+    // the whole card is clickable; the heading button gives keyboard and screen-reader access
+    cards.forEach(function (c, i) { c.addEventListener("click", function () { show(i); }); });
   }
 
   /* ---------- environment clips: an Auto-play switch (stills when off; off with reduced motion) ---------- */
@@ -877,7 +845,10 @@
     }
     var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     var toggle = autoToggle("Auto-play the environment clips", !reduce, set);
-    grid.parentNode.insertBefore(el("div", {class: "env-controls"}, [toggle]), grid);
+    // the caption row under the grid (in the HTML) takes the switch at its right end
+    var row = grid.parentNode.querySelector(".env-controls");
+    if (!row) { row = el("div", {class: "env-controls cap-row"}); grid.parentNode.insertBefore(row, grid.nextSibling); }
+    row.appendChild(toggle);
     if (reduce) set(false);
   }
 
@@ -885,12 +856,12 @@
   // Every <video> carries autoplay muted loop playsinline in the HTML, so it also plays with JS off.
   // With IntersectionObserver, JS owns playback instead: the autoplay attribute is dropped, a clip that
   // is not near the screen stops loading (it keeps its poster, preload="none"), and the observer plays
-  // each one while it is on screen. A clip the reader paused stays paused. With reduced motion they all
-  // start paused on the poster. Every video gets a small play/pause button (clicking it works too).
+  // each one while it is on screen and pauses it off screen. A clip the reader paused stays paused.
+  // The videos are content, so they autoplay with prefers-reduced-motion too (the page's other motion
+  // stays reduced); each has a small play/pause button to stop it (clicking the video works too).
   function initVideos() {
     var videos = Array.prototype.slice.call(document.querySelectorAll("video"));
     if (!videos.length) return;
-    var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     var hasIO = "IntersectionObserver" in window;
     var MARGIN = 80;   // px: a video this close to the screen counts as on screen
     var ICONS = '<svg class="ico ico-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.5 5.5v13M15.5 5.5v13"/></svg>' +
@@ -902,11 +873,12 @@
     }
     var states = videos.map(function (v) {
       // visible: on screen (as last reported by the observer); known: the observer has reported it at least once;
-      // held: the reader (or reduced motion) wants it paused. Only the play/pause button sets or clears held.
-      var s = {v: v, visible: !hasIO, known: !hasIO, held: reduce};
-      if (hasIO || reduce) {
+      // held: the reader wants it paused. Only the play/pause button (or a click on the video) sets or clears held.
+      var s = {v: v, visible: !hasIO, known: !hasIO, held: false};
+      v.muted = true;   // autoplay needs it; the teaser's Sound button unmutes on request
+      if (hasIO) {
         v.autoplay = false; v.removeAttribute("autoplay");
-        if (reduce || !near(v)) {
+        if (!near(v)) {
           // stop the download the autoplay attribute started; load() keeps the poster
           v.pause(); v.preload = "none"; v.load();
         }
@@ -972,7 +944,6 @@
       if (state) state.textContent = on ? "on" : "off";
     }
     btn.addEventListener("click", function () {
-      btn.classList.add("was-used");
       if (video.muted || video.volume === 0) {
         video.muted = false;
         if (video.volume === 0) video.volume = 1;
@@ -987,73 +958,24 @@
     sync();
   }
 
-  /* ---------- scroll reveal (progressive enhancement: content is visible without it) ---------- */
-  function initReveal() {
-    var items = Array.prototype.slice.call(document.querySelectorAll(".reveal"));
-    if (!items.length || !("IntersectionObserver" in window)) return;
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    function done(n) { setTimeout(function () { n.classList.remove("reveal", "is-in"); }, 1300); }
-    var vh = window.innerHeight || document.documentElement.clientHeight;
-    var pending = items.filter(function (n) {
-      if (n.getBoundingClientRect().top < vh * 0.94) { n.classList.add("is-in"); done(n); return false; }
-      return true;
-    });
-    var io = new IntersectionObserver(function (entries) {
-      entries.forEach(function (e) {
-        if (e.isIntersecting) { e.target.classList.add("is-in"); io.unobserve(e.target); done(e.target); }
-      });
-    }, {rootMargin: "0px 0px -6% 0px", threshold: 0});
-    pending.forEach(function (n) { io.observe(n); });
-    document.documentElement.classList.add("reveal-on");
-  }
-
-  /* ---------- top bar: reading progress, active section, back-to-top ---------- */
-  function initNav() {
+  /* ---------- reading progress: the thin bar at the top fills as the page scrolls ---------- */
+  function initProgress() {
     var bar = document.querySelector(".progress > span");
-    var topbar = document.querySelector(".topbar");
-    var btt = document.querySelector(".back-to-top");
-    var list = document.querySelector(".toplinks");
-    var links = Array.prototype.slice.call(document.querySelectorAll('.toplinks a[href^="#"]'));
-    if (btt) btt.classList.add("is-auto");
+    if (!bar) return;
     var ticking = false;
-    function onScroll() {
+    function update() {
       ticking = false;
       var d = document.documentElement;
-      var y = window.pageYOffset || d.scrollTop;
       var max = d.scrollHeight - window.innerHeight;
-      if (bar) bar.style.transform = "scaleX(" + (max > 0 ? Math.min(1, y / max) : 0).toFixed(4) + ")";
-      if (topbar) topbar.classList.toggle("is-scrolled", y > 8);
-      if (btt) btt.classList.toggle("is-visible", y > 700);
+      var y = window.pageYOffset || d.scrollTop;
+      bar.style.transform = "scaleX(" + (max > 0 ? Math.min(1, Math.max(0, y / max)) : 0).toFixed(4) + ")";
     }
-    function request() { if (!ticking) { ticking = true; window.requestAnimationFrame(onScroll); } }
+    function request() { if (!ticking) { ticking = true; window.requestAnimationFrame(update); } }
     window.addEventListener("scroll", request, {passive: true});
     window.addEventListener("resize", request);
-    onScroll();
-
-    if (!links.length || !("IntersectionObserver" in window)) return;
-    var targets = [];
-    links.forEach(function (a) {
-      var s = document.getElementById(a.getAttribute("href").slice(1));
-      if (s) targets.push({el: s, link: a});
-    });
-    var hero = document.getElementById("hero");
-    if (hero) targets.push({el: hero, link: null});
-    var current;
-    function setActive(a) {
-      if (a === current) return;
-      current = a;
-      links.forEach(function (l) { if (l === a) l.setAttribute("aria-current", "location"); else l.removeAttribute("aria-current"); });
-      if (a && list && list.scrollWidth > list.clientWidth) {
-        list.scrollLeft = a.offsetLeft - (list.clientWidth - a.offsetWidth) / 2;
-      }
-    }
-    var io = new IntersectionObserver(function (entries) {
-      entries.forEach(function (e) {
-        if (!e.isIntersecting) return;
-        for (var i = 0; i < targets.length; i++) if (targets[i].el === e.target) setActive(targets[i].link);
-      });
-    }, {rootMargin: "-38% 0px -58% 0px"});
-    targets.forEach(function (t) { io.observe(t.el); });
+    // the page grows as the figures and charts are built, so the bar is recomputed when it does
+    if ("ResizeObserver" in window) new ResizeObserver(request).observe(document.body);
+    update();
   }
 
   /* ---------- links that are still TODO: keep them visible but inert ---------- */
@@ -1061,7 +983,7 @@
     document.querySelectorAll("a[data-todo]").forEach(function (a) {
       if (a.getAttribute("href") !== "#") return;
       a.setAttribute("aria-disabled", "true");
-      a.setAttribute("title", "Link coming soon");
+      a.setAttribute("title", "Coming soon");
       a.addEventListener("click", function (e) { e.preventDefault(); });
     });
   }
@@ -1071,7 +993,7 @@
     if ((m = document.getElementById("k-results"))) renderKResults(m);
     if ((m = document.getElementById("reasoning-results"))) renderReasoning(m);
     initCopy(); initImagineAnimation(); initClips();
-    initVideos(); initSound(); initNav(); initTodoLinks(); initReveal();
+    initVideos(); initSound(); initTodoLinks(); initProgress();
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot); else boot();
 })();

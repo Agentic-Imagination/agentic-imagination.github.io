@@ -107,15 +107,15 @@
     function plain(list) { return list.filter(function (s) { return !s[1] || s[1].indexOf("tk") < 0; }).map(function (s) { return s[0]; }).join("").trim(); }
     function buildView(key) {
       var v = el("div", {class: "f5-view is-on", "data-view": key});
-      v.appendChild(el("p", {class: "f5-view-title"}, key === "after"
-        ? [el("strong", {text: "After RL"}), " · the new unified format"]
-        : [el("strong", {text: "Before RL"}), " · two separate formats"]));
+      v.appendChild(el("p", {class: "f5-view-title", text: key === "after"
+        ? "After RL, the model plans in one unified format."
+        : "Before RL, the model plans in two separate formats."}));
       FIG5[key].forEach(function (blk) {
         var b = el("section", {class: "f5-block " + blk.cls, "aria-label": blk.tag + ", " + blk.sub});
         var lane = [];
         lane.tag = (key === "after" ? "After RL, " : "Before RL, ") + blk.tag;
         units[key].push(lane);
-        b.appendChild(el("p", {class: "f5-tag"}, [el("strong", {text: blk.tag}), " · " + blk.sub]));
+        b.appendChild(el("p", {class: "f5-tag"}, [el("strong", {text: blk.tag}), " (" + blk.sub + ")"]));
         if (blk.intro) b.appendChild(runs(blk.intro, "f5-intro"));
         blk.rows.forEach(function (r) {
           var row = el("div", {class: "f5-row" + (r.ok === true ? " is-ok" : r.ok === false ? " is-bad" : "")});
@@ -128,7 +128,7 @@
             var bd = board(r.img + "_" + (i + 1), alt, cls);
             // lightbox.js: one group per view, captioned with the view, the format and the plan
             bd.setAttribute("data-lightbox", "fig5-" + key);
-            bd.firstChild.setAttribute("data-lb-caption", [key === "before" ? "Fig. 5, before RL" : "Fig. 5, after RL", blk.tag, plain(r.lead), alt].join(" · "));
+            bd.firstChild.setAttribute("data-lb-caption", (key === "before" ? "Figure 7, before RL. " : "Figure 7, after RL. ") + blk.tag + ". " + plain(r.lead) + " " + alt + ".");
             if (cls) bd.appendChild(el("span", {class: "f5-badge", html: cls === "is-good" ? ICON.check : ICON.cross}));
             var li = el("li", {class: "f5-step"}, [el("span", {class: "f5-act", text: a}), bd]);
             seq.appendChild(li);
@@ -150,8 +150,8 @@
 
     var input = el("div", {class: "f5-input"}, [
       el("span", {class: "f5-board is-real", "data-lightbox": "fig5-before fig5-after"}, [el("img", {src: dir + "input.webp", width: "124", height: "124", alt: "Input: the real Sokoban board", loading: "lazy", decoding: "async",
-        "data-lb-caption": "Fig. 5 · Input: the real Sokoban board. " + FIG5.input})]),
-      el("p", {}, [el("span", {class: "f5-input-tag", text: "Input"}), " " + FIG5.input])
+        "data-lb-caption": "Figure 7. Input: the real Sokoban board. " + FIG5.input})]),
+      el("p", {}, [el("span", {class: "f5-input-tag", text: "Input:"}), " " + FIG5.input])
     ]);
     var counter = el("span", {class: "f5-count", "aria-hidden": "true"});
     var bPrev = el("button", {type: "button", class: "f5-btn", "aria-label": "Previous step", html: ICON.prev});
@@ -160,7 +160,7 @@
     var live = el("p", {class: "visually-hidden", "aria-live": "polite"});
     var head = el("div", {class: "f5-head"}, [el("div", {class: "f5-steps", role: "group", "aria-label": "Plan steps"}, [bPrev, counter, bNext, bPlay]), live]);
     var stack = el("div", {class: "f5-stack", tabindex: "0", role: "region",
-      "aria-label": "Figure 5, step by step. Left and right arrow keys step through the plans; Enter enlarges the boards."}, [views.before, views.after]);
+      "aria-label": "Figure 7, step by step. Left and right arrow keys step through the plans; Enter enlarges the boards."}, [views.before, views.after]);
     var legend = el("p", {class: "f5-legend"}, [
       "Kept in the unified format: ",
       el("span", {class: "t-p1", text: "Format 1"}), " step-by-step rollout, ",
@@ -190,7 +190,7 @@
         if (u) said.push(lane.tag + ": " +
           u.li.querySelector(".f5-act").textContent.replace("… ", "") + "." + (u.last ? " " + outText(u.row) : ""));
       });
-      counter.textContent = "Step " + step + " / " + total();
+      counter.textContent = "Step " + step + " of " + total();
       // aria-disabled, not disabled: a focused button keeps its focus (and its arrow keys) at either end
       bPrev.setAttribute("aria-disabled", String(step <= 0));
       bNext.setAttribute("aria-disabled", String(step >= total()));

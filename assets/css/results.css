@@ -1,63 +1,48 @@
-/* Agima project page: hero author links, the TL;DR keywords, and the emphasis in the
-   "Success across K" table (03). Loaded after styles.css; uses its tokens. */
+/* Agima project page: hero author links, and Table 1 (the K table): its column sizing and the emphasis on
+   Agima-A7B's number in the selected column. Loaded after styles.css; uses its tokens. */
 
 /* ---------- hero: author names link to their homepages (the affiliation marks stay outside the link) ---------- */
-/* a faint underline at rest, so the names read as links on touch screens too (no hover there) */
 .author-link {
   color: inherit;
   text-decoration: underline 1px transparent;   /* underline only on hover */
   text-underline-offset: .22em;
-  transition: text-decoration-color 180ms ease, color 180ms ease;
 }
-.author-link:hover { color: var(--blue-ink); text-decoration-color: currentColor; }
+.author-link:hover { text-decoration-color: var(--ink); }
 .author-link:focus-visible { border-radius: 3px; outline-offset: 1px; }
 
-/* ---------- TL;DR: one sentence; "Agentic Imagination" and "imagine before it acts" in the title's keyword styles ---------- */
-.tldr-sentence { max-width: 50rem; }
-.tldr-key { font-weight: 600; white-space: nowrap; }
-.tldr-sentence .kw-agentic { color: var(--green-ink); }
-.tldr-sentence .kw::after { bottom: .06em; height: .06em; min-height: 2px; }
-
-/* ---------- 03: the chapter title never breaks inside "Easy-to-hard" ---------- */
+/* ---------- results: the section title never breaks inside "Easy-to-hard" ---------- */
 .nobr { white-space: nowrap; }
 
-/* ---------- Success across K: every number carries a %; selecting a column (a click or tap anywhere in it,
-   or its K button) or hovering a row brings out Agima's numbers and fades the others ---------- */
+/* ---------- Table 1: every number carries a %. A click or tap anywhere in a column selects it, like its K
+   button in the header (or the arrow keys there); Agima-A7B's number in that column turns bold, blue and
+   larger ---------- */
 .kt td[data-k] { cursor: pointer; text-align: center; }
+.data-table.kt td[data-k] { min-width: 0; padding-inline: 3px; }
 .kt-n {
   display: inline-block;
+  text-align: center;
   transform-origin: 50% 55%;
-  transition: transform 300ms var(--ease), color 200ms ease, opacity 200ms ease;
+  transition: transform 220ms var(--ease), color 180ms ease;
 }
+/* a hidden, zero-height bold copy of the number keeps the box as wide as the number in bold, so turning bold
+   never widens the column; it comes first, so the box keeps the visible number's baseline */
+.kt-n::before { content: attr(data-n); display: block; height: 0; overflow: hidden; visibility: hidden; font-weight: 600; }
 .kt-pct { margin-left: .04em; font-size: .82em; }
-.kt tr.is-ours .kt-n { color: var(--blue-ink); }
-
-/* the selected column: Agima's number grows, the others fade a little (the column's best number never fades,
-   so "Bold = best per column" stays true when another model holds it) */
-.kt tr.is-ours td.is-sel .kt-n,
-.kt.is-compare tr.is-ours .kt-n { transform: scale(1.25); font-weight: 700; }
-.kt tbody tr:not(.is-ours) td.is-sel:not(.is-best) .kt-n { opacity: .55; }
-.kt td.is-sel.is-na { color: #D9D5CB; }
-
-/* a hovered row is set against Agima's row; the rest fade */
-.kt tbody th { transition: color 200ms ease, background 200ms ease; }
-.kt.is-compare tbody tr:not(.is-ours):not(.is-hot):not(.group-row) td:not(.is-best) .kt-n { opacity: .4; }
-.kt.is-compare tbody tr:not(.is-ours):not(.is-hot):not(.group-row) th { color: #A9A59B; }
-.kt.is-compare tbody tr.is-hot td.is-sel .kt-n { opacity: 1; }
-.kt tbody tr.is-hot:not(.is-ours) th { background: #F5F7FD; }
-.kt tbody tr.is-hot:not(.is-ours) td { background: rgba(38, 96, 224, .045); }
-
-/* centred under the K buttons. All four environments share the 960 px measure, so the columns take their
-   content width; on hover Agima's numbers only turn bold (no scale), so neighbours and the environment
-   dividers keep their gap */
-.data-table.kt td[data-k] { min-width: 0; padding-inline: 3px; }
-.kt tbody th { min-width: 7.6em; }
-/* a narrow method column (long names wrap to two lines), so the twenty number columns get the room */
-.kt th.kt-method, .kt tbody th { width: 9.4em; }
-.kt.is-compare tr.is-ours td:not(.is-sel) .kt-n { transform: none; }
+/* the scale is a transform, so the row and the columns do not move */
+.kt tr.is-ours td.is-sel .kt-n { color: var(--blue-ink); font-weight: 600; transform: scale(1.2); }
+@media (prefers-reduced-motion: reduce) {
+  .kt-n { transition: none; }
+}
+/* a hovered method row (mouse) takes a faint tint, to read it against Agima-A7B's row */
+@media (hover: hover) {
+  .kt tbody tr:not(.is-ours):not(.group-row):hover > * { background: var(--mist); }
+}
+/* the method column fits "Agima-A7B (No Imagine)" on one line; the twenty number columns share the rest */
+.kt th.kt-method, .kt tbody th { width: 11.6em; white-space: nowrap; }
 @media (max-width: 900px) {
   /* one environment at a time: five wide columns again */
-  .kt tbody th { min-width: 0; }
   .kt th.kt-method, .kt tbody th { width: auto; }
-  .kt.is-compare tr.is-ours td:not(.is-sel) .kt-n { transform: scale(1.25); }
+}
+@media (max-width: 640px) {
+  .kt tbody th { white-space: normal; }
 }
