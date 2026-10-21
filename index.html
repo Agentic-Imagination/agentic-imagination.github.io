@@ -38,9 +38,9 @@
   <link rel="stylesheet" href="assets/css/results.css?v=72f14373">
   <link rel="stylesheet" href="assets/css/traps.css?v=5c213259">
   <link rel="stylesheet" href="assets/css/lightbox.css?v=fe5753f4">
-  <script defer src="assets/js/main.js?v=a279a058"></script>
+  <script defer src="assets/js/main.js?v=9401288c"></script>
   <script src="assets/js/rl-charts.js?v=2427e6f5" defer></script>
-  <script src="assets/js/figures.js?v=ce30c81c" defer></script>
+  <script src="assets/js/figures.js?v=2504fd7f" defer></script>
   <script src="assets/js/traps.js?v=b4becfdb" defer></script>
   <script src="assets/js/lightbox.js?v=571cb2ec" defer></script>
   <noscript><style>.rl-figure, .results-block, .trap-results { display: none; }</style></noscript>
@@ -224,41 +224,41 @@
       <div class="wrap">
         <div class="chapter-head">
           <h2 id="env-title">Environments</h2>
-          <p class="chapter-lead">We train Agima on the easy split of four environments and test it on a harder split it never sees in training.</p>
+          <p class="chapter-lead">We train Agima on an easier split of four environments (left clip of each pair) and test it on a harder split it never sees in training (right clip).</p>
         </div>
         <div class="env-grid">
           <article class="env">
             <h3>Maze2D</h3>
             <div class="env-pair">
-              <figure><img src="assets/gifs/env/maze2d_train.gif" width="256" height="282" loading="lazy" alt="Maze2D training episode, ground-truth rollout."><figcaption>11×11 maze</figcaption></figure>
-              <figure><img src="assets/gifs/env/maze2d_test.gif" width="256" height="282" loading="lazy" alt="Maze2D test episode, ground-truth rollout."><figcaption>Larger maze</figcaption></figure>
+              <figure><img src="assets/gifs/env/maze2d_train.gif" width="256" height="282" loading="lazy" alt="Maze2D training episode, ground-truth rollout."><figcaption>Train: 11×11 maze</figcaption></figure>
+              <figure><img src="assets/gifs/env/maze2d_test.gif" width="256" height="282" loading="lazy" alt="Maze2D test episode, ground-truth rollout."><figcaption>Test: larger maze</figcaption></figure>
             </div>
           </article>
           <article class="env">
             <h3>Sokoban</h3>
             <div class="env-pair">
-              <figure><img src="assets/gifs/env/sokoban_train.gif" width="256" height="282" loading="lazy" alt="Sokoban training episode, ground-truth rollout."><figcaption>Two boxes</figcaption></figure>
-              <figure><img src="assets/gifs/env/sokoban_test.gif" width="256" height="282" loading="lazy" alt="Sokoban test episode, ground-truth rollout."><figcaption>Four boxes</figcaption></figure>
+              <figure><img src="assets/gifs/env/sokoban_train.gif" width="256" height="282" loading="lazy" alt="Sokoban training episode, ground-truth rollout."><figcaption>Train: two boxes</figcaption></figure>
+              <figure><img src="assets/gifs/env/sokoban_test.gif" width="256" height="282" loading="lazy" alt="Sokoban test episode, ground-truth rollout."><figcaption>Test: four boxes</figcaption></figure>
             </div>
           </article>
           <article class="env">
             <h3>Pacman</h3>
             <div class="env-pair">
-              <figure><img src="assets/gifs/env/pacman_train.gif" width="256" height="282" loading="lazy" alt="Pacman training episode, ground-truth rollout."><figcaption>9×9, 8 food</figcaption></figure>
-              <figure><img src="assets/gifs/env/pacman_test.gif" width="256" height="282" loading="lazy" alt="Pacman test episode, ground-truth rollout."><figcaption>12×12, 12 food, closer ghost</figcaption></figure>
+              <figure><img src="assets/gifs/env/pacman_train.gif" width="256" height="282" loading="lazy" alt="Pacman training episode, ground-truth rollout."><figcaption>Train: 9×9, 8 food</figcaption></figure>
+              <figure><img src="assets/gifs/env/pacman_test.gif" width="256" height="282" loading="lazy" alt="Pacman test episode, ground-truth rollout."><figcaption>Test: 12×12, 12 food</figcaption></figure>
             </div>
           </article>
           <article class="env">
             <h3>PushT</h3>
             <div class="env-pair">
-              <figure><img src="assets/gifs/env/pusht_train.gif" width="256" height="282" loading="lazy" alt="PushT training episode, ground-truth rollout."><figcaption>Starts near the center</figcaption></figure>
-              <figure><img src="assets/gifs/env/pusht_test.gif" width="256" height="282" loading="lazy" alt="PushT test episode, ground-truth rollout."><figcaption>Starts far from the center</figcaption></figure>
+              <figure><img src="assets/gifs/env/pusht_train.gif" width="256" height="282" loading="lazy" alt="PushT training episode, ground-truth rollout."><figcaption>Train: T near the center</figcaption></figure>
+              <figure><img src="assets/gifs/env/pusht_test.gif" width="256" height="282" loading="lazy" alt="PushT test episode, ground-truth rollout."><figcaption>Test: T far from the center</figcaption></figure>
             </div>
           </article>
         </div>
         <!-- main.js adds the Auto-play switch to this row -->
         <div class="env-controls cap-row">
-          <p class="fig-cap"><b>Figure 3.</b> Ground-truth rollouts: the training split on the left of each pair, the test split on the right.</p>
+          <p class="fig-cap"><b>Figure 3.</b> Ground-truth rollouts from the training and test splits.</p>
         </div>
       </div>
     </section>
@@ -268,7 +268,7 @@
       <div class="wrap">
         <div class="chapter-head">
           <h2 id="results-title"><span class="nobr">Easy-to-hard</span> generalization</h2>
-          <p class="chapter-lead"><i>K</i> is the number of actions Agima executes per real observation. Between observations, it plans from its own imagined frames.</p>
+          <p class="chapter-lead"><i>K</i> is the number of actions a model plans and executes per real observation. Between observations, Agima plans from its own imagined frames.</p>
         </div>
 
         <noscript><p class="chart-note">The charts and tables on this page need JavaScript.</p></noscript>
@@ -284,14 +284,13 @@
       <div class="wrap">
         <div class="chapter-head">
           <h2 id="traps-title">Planning traps</h2>
-          <p class="chapter-lead">Test sets where a locally reasonable move fails several steps later. <i>K</i>&nbsp;=&nbsp;∞.</p>
+          <p class="chapter-lead">Planning traps are hard test sets built specifically to measure planning. In each, a move that looks reasonable fails several steps later. We compare the planning modes of Figure&nbsp;2, each trained on the same data, at <i>K</i>&nbsp;=&nbsp;∞.</p>
         </div>
         <div class="trap-demos">
           <article class="trap-demo" aria-labelledby="trap-deadlock-title">
             <div class="trap-copy">
               <h3 id="trap-deadlock-title">Deadlock</h3>
               <p>One push puts the nearer box on the goal beside it. That goal is the only one the farther box can ever reach, so the farther box is left with nowhere to go.</p>
-              <p class="trap-note">A 2-box level from Agima's Sokoban generator. Test sets: 2, 3 and 4 boxes, 100 puzzles each.</p>
             </div>
             <figure class="trap-anim" data-trap="deadlock" data-title="Deadlock">
               <div class="trap-runs">
@@ -306,14 +305,13 @@
                   <p class="trap-result">Solved in 18 moves</p>
                 </figure>
               </div>
-              <figcaption class="fig-cap trap-cap"><b>Figure 5a.</b> Two runs from the same start on a Deadlock level: nearer box first (left) and farther box first (right).</figcaption>
+              <figcaption class="fig-cap trap-cap"><b>Figure 5a.</b> A two-box level from Agima's Sokoban generator.</figcaption>
             </figure>
           </article>
           <article class="trap-demo" aria-labelledby="trap-fork-title">
             <div class="trap-copy">
               <h3 id="trap-fork-title">Irreversible push <span class="trap-set">(Structural Fork set)</span></h3>
               <p>Two pushes are legal here. Pushing up pins a box to the wall in a row with no goal, and no later move brings it back. Pushing right keeps the puzzle solvable.</p>
-              <p class="trap-note">Test sets: 2, 3 and 4 boxes, 100 puzzles each.</p>
             </div>
             <figure class="trap-anim" data-trap="fork" data-title="Irreversible push">
               <div class="trap-runs">
@@ -328,14 +326,13 @@
                   <p class="trap-result">Solved in 13 moves</p>
                 </figure>
               </div>
-              <figcaption class="fig-cap trap-cap"><b>Figure 5b.</b> Two runs from the same start on a Structural Fork level: pushing up (left) and pushing right (right).</figcaption>
+              <figcaption class="fig-cap trap-cap"><b>Figure 5b.</b> Both pushes from the same start, on a Fork level.</figcaption>
             </figure>
           </article>
           <article class="trap-demo" aria-labelledby="trap-pacman-title">
             <div class="trap-copy">
               <h3 id="trap-pacman-title">Pacman route order</h3>
               <p>Going for the nearer food first leaves Pacman no escape from the ghost. Going for the farther food first clears the level.</p>
-              <p class="trap-note">The episode from <a href="assets/images/fig3_forward_vs_linear.webp" target="_blank" rel="noopener">Figure&nbsp;3 of the paper</a>. Test grids are 8×8 with 2, 4, 6 or 8 food, and 10×10 with 8.</p>
             </div>
             <figure class="trap-anim" data-trap="pacman" data-title="Pacman route order">
               <div class="trap-runs">
@@ -350,7 +347,7 @@
                   <p class="trap-result">All food eaten</p>
                 </figure>
               </div>
-              <figcaption class="fig-cap trap-cap"><b>Figure 5c.</b> Agima-A7B and Agima-A7B (Forward) on the same Pacman episode.</figcaption>
+              <figcaption class="fig-cap trap-cap"><b>Figure 5c.</b> Both models on the Pacman episode of <a href="assets/images/fig3_forward_vs_linear.webp" target="_blank" rel="noopener">paper Fig.&nbsp;3</a>.</figcaption>
             </figure>
           </article>
         </div>
@@ -366,7 +363,7 @@
       <div class="wrap">
         <div class="chapter-head">
           <h2 id="rl-title">Learning when and where to imagine</h2>
-          <p class="chapter-lead">We run RL from the SFT models on three-box Sokoban, with a binary success reward and nothing else.</p>
+          <p class="chapter-lead">We run RL from the fine-tuned Agima-A7B models on three-box Sokoban with only a binary success reward, and test on the Deadlock and Fork sets.</p>
         </div>
         <noscript>
           <figure class="rl-static"><img src="assets/images/fig4_rl_curves.webp" width="1547" height="542" loading="lazy" alt="Paper Figure 4: training reward and held-out accuracy on the deadlock and fork sets over 200 RL steps, 3 and 4 boxes."><figcaption class="fig-cap"><b>Paper Figure 4.</b> Training reward and held-out accuracy on the Deadlock and Fork sets over 200 RL steps. Solid lines are 3 boxes, dashed lines 4 boxes.</figcaption></figure>
@@ -376,21 +373,21 @@
         <div class="analysis-row">
           <div class="analysis-copy">
             <h3>RL improves held-out planning</h3>
-            <p>Every imagination variant improves, including on four-box puzzles it never sees in RL, while the action-only model stays near zero.</p>
+            <p>Every imagination variant improves, including on four-box puzzles never seen in RL, while the action-only model (No Imagine) stays near zero.</p>
           </div>
           <figure class="rl-figure">
             <div class="rl-grid">
               <div class="chart"><div class="rl-chart" data-chart="fig4b"></div></div>
               <div class="chart"><div class="rl-chart" data-chart="fig4c"></div></div>
             </div>
-            <figcaption class="fig-cap"><b>Figure 6.</b> Held-out accuracy over 200 RL steps: (a) Agima-A7B (Forward) on the Deadlock set and (b) Agima-A7B (Branching) on the Fork set, each with Agima-A7B and No Imagine for reference. Solid lines are 3 boxes, dashed lines 4 boxes (paper Fig.&nbsp;4b–c).</figcaption>
+            <figcaption class="fig-cap"><b>Figure 6.</b> Held-out accuracy over 200 RL steps: (a) Agima-A7B (Forward) on the Deadlock set and (b) Agima-A7B (Branching) on the Fork set. Solid lines are 3 boxes, dashed lines 4 boxes (paper Fig.&nbsp;4b–c).</figcaption>
           </figure>
         </div>
 
         <div class="analysis-row">
           <div class="analysis-copy">
             <h3>A new unified format emerges</h3>
-            <p>After RL, Agima rolls out one plan step by step and drafts the next only once it foresees a failure. Second plans drop from 79% to 26–31% of episodes.</p>
+            <p>After RL, Agima-A7B (Forward) rolls out one plan and drafts another only if it predicts failure. Second plans drop from 79% to 26–31% of episodes.</p>
           </div>
           <figure class="fig5" data-fig5="assets/images/fig5/">
             <a class="zoom fig5-static" href="assets/images/fig5_rl_qualitative.webp" target="_blank" rel="noopener"><img src="assets/images/fig5_rl_qualitative.webp" width="2400" height="1118" loading="lazy" alt="Paper Figure 5, the same Sokoban puzzle before and after RL. (a) Before RL: Format 1 imagines one plan step by step; Format 2 imagines Candidate 1, which succeeds, and Candidate 2, which reaches deadlock, and commits to Candidate 1. (b) After RL, the unified format: a step-by-step rollout reaches deadlock, Candidate 2 reaches deadlock, Candidate 3 succeeds and is committed."><span class="zoom-hint" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-7 7M10 20H4v-6M4 20l7-7"/></svg><span>Full size</span></span><span class="visually-hidden"> (opens the full-size image)</span></a>
@@ -408,7 +405,7 @@
         <div class="analysis-row">
           <div class="analysis-copy">
             <h3>Branching moves to critical decisions</h3>
-            <p>After RL, Agima branches more often, and more of its branches land where one push would make the puzzle unsolvable.</p>
+            <p>After RL, Agima-A7B (Branching) opens more branches per episode, and more of them land where one push would make the puzzle unsolvable.</p>
           </div>
           <figure class="rl-figure">
             <div class="rl-grid">

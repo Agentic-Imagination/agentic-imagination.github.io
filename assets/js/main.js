@@ -192,7 +192,7 @@
     // the caption sits above the table, as in the paper, with the Table / Chart switch at its right
     var controls = el("div", {class: "chart-controls cap-row"});
     var CAPTION = {
-      table: "<b>Table 1.</b> Success rate on the hard test splits (PushT: far split) for each <i>K</i>. Bold marks the best result in each column, and a dash means not evaluated. Select a column to play its rollout in Figure&nbsp;4.",
+      table: "<b>Table 1.</b> Success rate on the test splits for each <i>K</i>. Bold marks the best result in each column, and a dash means not evaluated. Select a column to play its rollout in Figure&nbsp;4.",
       chart: "<b>Table 1</b>, drawn as line charts: success rate (%) per method across <i>K</i>. Select a <i>K</i> to play its rollout in Figure&nbsp;4."
     };
     var note = el("p", {class: "fig-cap", id: "table1-cap", html: CAPTION.table});
@@ -746,8 +746,8 @@
       t.appendChild(tb);
       wrap.innerHTML = ""; wrap.appendChild(t);
       wrap.appendChild(el("p", {class: "table-foot", text: state.task === "sokoban"
-        ? "All models are trained on two-box Sokoban. Bold marks the best result in each column. The small numbers give the change from Agima-A7B in percentage points."
-        : "Route-order traps: collecting the nearer food first leaves no safe way to finish. G is the grid size and F the number of food items. Bold marks the best result in each column. The small numbers give the change from Agima-A7B in percentage points."}));
+        ? "The fine-tuned models are trained on two-box Sokoban. Bold marks the best result in each column. The small numbers give the change from Agima-A7B in percentage points."
+        : "The fine-tuned models are trained on 9×9 grids. G is the grid size and F the number of food items. Bold marks the best result in each column. The small numbers give the change from Agima-A7B in percentage points."}));
       edgeFade(wrap);
     }
     draw();

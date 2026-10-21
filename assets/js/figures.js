@@ -64,7 +64,7 @@
         {img: "fmt1", lead: [THINK, [" "], ["Let me imagine the next moves step by step.", "p1"]],
          acts: ["Down", "Left", "Down", "… Down"], end: [END]}
       ]},
-      {tag: "Format 2", sub: "fork", cls: "is-f2", intro: [THINK, [" A fork appears here. Let me imagine both options before acting."]], rows: [
+      {tag: "Format 2", sub: "forward thinking", cls: "is-f2", intro: [THINK, [" A fork appears here. Let me imagine both options before acting."]], rows: [
         {img: "c1", lead: [["Candidate 1:", "b p2"], [" start by pushing the upper box."]],
          acts: ["Left", "Up", "Right", "… Stop"], ok: true, result: [["Result:", "b p2"], [" this plan succeeds."]]},
         {img: "c2", lead: [["Candidate 2:", "b p2"], [" start by pushing the lower box."]],
